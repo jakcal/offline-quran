@@ -64,7 +64,7 @@ function SurahSheetView({ chapterId }: { chapterId: number }) {
             <h2 className="font-arabic text-4xl leading-tight" dir="rtl">
               {chapter.nameArabic}
             </h2>
-            <p className="mt-1 text-lg font-semibold">{chapter.nameSimple}</p>
+            <p className="font-display mt-1 text-2xl font-bold">{chapter.nameSimple}</p>
             <p className="text-sm text-muted">
               {chapter.translatedName} · {place} · {chapter.versesCount} verses
             </p>

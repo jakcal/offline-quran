@@ -30,15 +30,16 @@ interface Palette {
   faint: string
   accent: string
   accentInk: string
+  gold: string
   rule: string
   sel: string
 }
 
 const THEMES: Record<ReaderTheme, Palette> = {
-  light: { bg: '#faf9f6', panel: '#ffffff', text: '#1c1917', faint: '#78716c', accent: '#0f766e', accentInk: '#ffffff', rule: '#e7e5e4', sel: 'rgba(15,118,110,0.10)' },
-  sepia: { bg: '#f4ecd8', panel: '#efe6cf', text: '#4b3b2a', faint: '#8a7355', accent: '#9a6a2f', accentInk: '#fffaf0', rule: '#e1d4b5', sel: 'rgba(154,106,47,0.13)' },
-  green: { bg: '#e9f0e8', panel: '#dfe9dd', text: '#1c2b22', faint: '#5d7466', accent: '#15803d', accentInk: '#f0fdf4', rule: '#cdddc9', sel: 'rgba(21,128,61,0.12)' },
-  dark: { bg: '#0f0f10', panel: '#1a1a1c', text: '#e9e7e4', faint: '#9a948c', accent: '#2dd4bf', accentInk: '#06231f', rule: '#2a2622', sel: 'rgba(45,212,191,0.15)' },
+  light: { bg: '#faf9f6', panel: '#ffffff', text: '#1c1917', faint: '#78716c', accent: '#0f766e', accentInk: '#ffffff', gold: '#b08d57', rule: '#e7e5e4', sel: 'rgba(15,118,110,0.10)' },
+  sepia: { bg: '#f4ecd8', panel: '#efe6cf', text: '#4b3b2a', faint: '#8a7355', accent: '#9a6a2f', accentInk: '#fffaf0', gold: '#9a6a2f', rule: '#e1d4b5', sel: 'rgba(154,106,47,0.13)' },
+  green: { bg: '#e9f0e8', panel: '#dfe9dd', text: '#1c2b22', faint: '#5d7466', accent: '#15803d', accentInk: '#f0fdf4', gold: '#9a7b3a', rule: '#cdddc9', sel: 'rgba(21,128,61,0.12)' },
+  dark: { bg: '#0f0f10', panel: '#1a1a1c', text: '#e9e7e4', faint: '#9a948c', accent: '#2dd4bf', accentInk: '#06231f', gold: '#d4af37', rule: '#2a2622', sel: 'rgba(45,212,191,0.15)' },
 }
 
 const SWATCH: Record<ReaderTheme, string> = { light: '#faf9f6', sepia: '#f4ecd8', green: '#e3ede1', dark: '#161618' }
@@ -208,7 +209,7 @@ function ReaderView({ chapterId, onClose }: { chapterId: number; onClose: () => 
           >
             <VerseContent v={v} script={script} />
             {!hideMarkers && (
-              <AyahMarker n={v.verseNumber} color={p.accent} bg={p.bg} ink={p.accentInk} filled={bookmarkSet.has(v.key)} />
+              <AyahMarker n={v.verseNumber} color={p.gold} bg={p.bg} ink={p.accentInk} filled={bookmarkSet.has(v.key)} />
             )}{' '}
           </span>
         )
@@ -335,10 +336,10 @@ function ReaderView({ chapterId, onClose }: { chapterId: number; onClose: () => 
             {/* Ornamental surah header */}
             <div className="mx-auto mb-7 max-w-md rounded-2xl px-6 py-4 text-center" style={{ border: `1px solid ${p.rule}`, background: p.bg }}>
               <div className="mb-1.5 flex items-center justify-center gap-2 text-[10px] font-semibold uppercase tracking-[0.22em]" style={{ color: p.faint }}>
-                <Flourish color={p.accent} /> Surah {chapter.id} <Flourish color={p.accent} />
+                <Flourish color={p.gold} /> Surah {chapter.id} <Flourish color={p.gold} />
               </div>
               <h1 className="font-arabic text-4xl leading-tight">{chapter.nameArabic}</h1>
-              <p className="mt-1 text-sm font-medium">{chapter.nameSimple}</p>
+              <p className="font-display mt-1 text-base font-bold">{chapter.nameSimple}</p>
               <p className="text-xs" style={{ color: p.faint }}>{chapter.translatedName} · {place}</p>
             </div>
 

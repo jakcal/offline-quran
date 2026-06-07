@@ -48,7 +48,7 @@ export function About() {
               {/* Hero */}
               <div className="flex flex-col items-center text-center">
                 <img src="/icon.svg" alt="" className="h-20 w-20 rounded-3xl" />
-                <h2 className="mt-3 text-xl font-bold tracking-tight">Offline Quran</h2>
+                <h2 className="font-display mt-3 text-2xl font-bold tracking-tight">Offline Quran</h2>
                 <span className="mt-1.5 rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand">
                   Free &amp; open source
                 </span>

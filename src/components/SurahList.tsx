@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
 import { CHAPTERS, CHAPTER_BY_ID, RECITERS } from '../data'
+import { useOnlineStatus } from '../lib/useOnlineStatus'
 import { useDownloads } from '../store/downloads'
 import { DownloadedRow } from './DownloadedRow'
-import { SearchIcon } from './icons'
+import { CloudOffIcon, SearchIcon } from './icons'
 import { SurahRow } from './SurahRow'
 
 type Filter = 'all' | 'offline'
@@ -13,8 +14,11 @@ export function SurahList() {
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<Filter>('all')
   const downloaded = useDownloads((s) => s.downloaded)
+  const online = useOnlineStatus()
 
-  // All-tab: filter the 114 chapters by the search query.
+  // Offline → only downloaded surahs are usable, so collapse to the saved list.
+  const showOffline = !online || filter === 'offline'
+
   const chapters = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!q) return CHAPTERS
@@ -27,7 +31,6 @@ export function SurahList() {
     )
   }, [query])
 
-  // Offline-tab: every downloaded recording across all reciters, each with its reciter.
   const offlineEntries = useMemo(() => {
     const q = query.trim().toLowerCase()
     const entries = [...downloaded]
@@ -62,27 +65,36 @@ export function SurahList() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             inputMode="search"
-            placeholder={filter === 'offline' ? 'Search saved surahs or reciters' : 'Search surah by name or number'}
+            placeholder={showOffline ? 'Search downloaded surahs' : 'Search surah by name or number'}
             className="w-full bg-transparent text-sm outline-none placeholder:text-muted"
           />
         </div>
 
-        <div className="mt-2 flex gap-2">
-          <FilterTab active={filter === 'all'} onClick={() => setFilter('all')}>
-            All 114
-          </FilterTab>
-          <FilterTab active={filter === 'offline'} onClick={() => setFilter('offline')}>
-            Offline {downloaded.size > 0 && `· ${downloaded.size}`}
-          </FilterTab>
-        </div>
+        {online ? (
+          <div className="mt-2 flex gap-2">
+            <FilterTab active={filter === 'all'} onClick={() => setFilter('all')}>
+              All 114
+            </FilterTab>
+            <FilterTab active={filter === 'offline'} onClick={() => setFilter('offline')}>
+              Offline {downloaded.size > 0 && `· ${downloaded.size}`}
+            </FilterTab>
+          </div>
+        ) : (
+          <div className="mt-2 flex items-center gap-2 rounded-full bg-brand-50 px-3 py-1.5 text-xs font-semibold text-brand">
+            <CloudOffIcon className="h-4 w-4" />
+            Offline — showing your downloaded surahs
+          </div>
+        )}
       </div>
 
-      {filter === 'offline' ? (
+      {showOffline ? (
         offlineEntries.length === 0 ? (
           <p className="px-4 py-16 text-center text-sm text-muted">
             {query
               ? 'No saved recordings match your search.'
-              : 'Nothing saved offline yet. Play any surah (or tap its download icon) and it appears here — from every reciter you download.'}
+              : online
+                ? 'Nothing saved offline yet. Open a surah and tap Download — it appears here, from every reciter you download.'
+                : 'Nothing saved for offline use yet. Reconnect to download surahs.'}
           </p>
         ) : (
           <ul className="pb-2">
@@ -104,21 +116,13 @@ export function SurahList() {
   )
 }
 
-function FilterTab({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean
-  onClick: () => void
-  children: React.ReactNode
-}) {
+function FilterTab({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
     <button
       type="button"
       onClick={onClick}
       className={`rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors ${
-        active ? 'bg-brand text-white' : 'bg-surface text-muted ring-1 ring-line active:bg-line'
+        active ? 'bg-brand text-white' : 'bg-surface text-muted ring-1 ring-line hover:bg-line/70 active:bg-line'
       }`}
     >
       {children}

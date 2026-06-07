@@ -1,7 +1,7 @@
 import { useDownloads } from '../store/downloads'
 import { formatBytes } from '../lib/format'
 import { useOnlineStatus } from '../lib/useOnlineStatus'
-import { CloudOffIcon, MicIcon } from './icons'
+import { CloudOffIcon } from './icons'
 import { InstallButton } from './InstallButton'
 import { About } from './About'
 
@@ -10,15 +10,17 @@ export function Header() {
   const cacheSize = useDownloads((s) => s.cacheSize)
 
   return (
-    <header className="safe-top border-b border-line bg-paper">
-      <div className="mx-auto flex max-w-2xl items-center justify-between gap-3 px-4 py-3">
-        <div className="flex items-center gap-2.5">
-          <span className="grid h-9 w-9 place-items-center rounded-xl bg-brand text-white">
-            <MicIcon className="h-5 w-5" />
-          </span>
+    <header className="safe-top relative border-b border-line">
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{ background: 'linear-gradient(180deg, color-mix(in srgb, var(--color-brand) 9%, transparent), transparent)' }}
+      />
+      <div className="relative mx-auto flex max-w-2xl items-center justify-between gap-3 px-4 py-3">
+        <div className="flex items-center gap-3">
+          <img src="/icon.svg" alt="" className="h-10 w-10 rounded-xl ring-1 ring-black/5" />
           <div className="leading-tight">
-            <h1 className="text-base font-bold tracking-tight">Offline Quran</h1>
-            <p className="text-xs text-muted">{formatBytes(cacheSize)} saved offline</p>
+            <h1 className="font-display text-xl font-bold leading-none tracking-tight">Offline Quran</h1>
+            <p className="mt-0.5 text-[11px] text-muted">{formatBytes(cacheSize)} saved offline</p>
           </div>
         </div>
 

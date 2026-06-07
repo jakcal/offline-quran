@@ -1,12 +1,26 @@
 @import 'tailwindcss';
 
-/* Bundled Quran typeface (Amiri Quran, OFL) — precached for offline reading. */
+/* Bundled typefaces (Amiri / Amiri Quran, OFL) — precached for offline use. */
 @font-face {
   font-family: 'Amiri Quran';
   font-style: normal;
   font-weight: 400;
   font-display: swap;
   src: url('/fonts/amiri-quran-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Amiri';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/amiri-latin-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Amiri';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/amiri-latin-700.woff2') format('woff2');
 }
 
 /* ---- Flat design tokens ---------------------------------------------- */
@@ -20,8 +34,10 @@
   --color-brand: #0f766e;
   --color-brand-700: #115e59;
   --color-brand-50: #ecfdf5;
+  --color-gold: #b08d57;
 
   --font-arabic: 'Amiri Quran', 'Scheherazade New', 'Noto Naskh Arabic', serif;
+  --font-display: 'Amiri', 'Iowan Old Style', Georgia, serif;
 
   --radius-card: 0.875rem;
 }
@@ -37,6 +53,7 @@
     --color-brand: #2dd4bf;
     --color-brand-700: #5eead4;
     --color-brand-50: #134e4a;
+    --color-gold: #d4af37;
   }
 }
 
