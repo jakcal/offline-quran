@@ -24,6 +24,24 @@ export interface AudioRecord {
   savedAt: number
 }
 
+/** A single verse with its Arabic text in multiple scripts. */
+export interface VerseText {
+  key: string // e.g. "2:255"
+  text: string // Uthmani
+  indopak: string
+  tajweed: string // Uthmani with <tajweed> color tags
+  verseNumber: number
+  page: number // mushaf page number
+  juz: number
+}
+
+/** A chapter's full Arabic text, persisted for offline reading. */
+export interface VerseRecord {
+  chapterId: number
+  verses: VerseText[]
+  savedAt: number
+}
+
 export type DownloadState = 'idle' | 'downloading' | 'done' | 'error'
 
 export interface DownloadProgress {

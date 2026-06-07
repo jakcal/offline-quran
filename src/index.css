@@ -1,5 +1,14 @@
 @import 'tailwindcss';
 
+/* Bundled Quran typeface (Amiri Quran, OFL) — precached for offline reading. */
+@font-face {
+  font-family: 'Amiri Quran';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/amiri-quran-400.woff2') format('woff2');
+}
+
 /* ---- Flat design tokens ---------------------------------------------- */
 @theme {
   --color-paper: #f8f7f4;

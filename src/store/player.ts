@@ -3,6 +3,7 @@ import { CHAPTER_BY_ID, DEFAULT_RECITER_ID, RECITERS } from '../data'
 import { fetchChapterAudioUrl } from '../lib/api'
 import { getAudio, setMeta } from '../lib/db'
 import { useDownloads } from './downloads'
+import { useRecents } from './recents'
 
 // One audio element for the whole app, kept outside React state.
 const audio = new Audio()
@@ -73,6 +74,7 @@ export const usePlayer = create<PlayerState>((set, get) => ({
       void setMeta('reciterId', reciterIdOverride)
     }
     set({ chapterId, loading: true, error: null })
+    useRecents.getState().setLastListened(chapterId, reciterId)
 
     try {
       const cached = await getAudio(reciterId, chapterId)

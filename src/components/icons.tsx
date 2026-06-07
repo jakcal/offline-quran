@@ -88,6 +88,55 @@ export const SpinnerIcon = (props: IconProps) => (
   </svg>
 )
 
+export const BookmarkIcon = (props: IconProps) => (
+  <svg {...stroke(props)}>
+    <path d="M6 4h12a1 1 0 0 1 1 1v15l-7-4-7 4V5a1 1 0 0 1 1-1Z" />
+  </svg>
+)
+
+export const CopyIcon = (props: IconProps) => (
+  <svg {...stroke(props)}>
+    <rect x="9" y="9" width="11" height="11" rx="2" />
+    <path d="M5 15V5a1 1 0 0 1 1-1h10" />
+  </svg>
+)
+
+export const SlidersIcon = (props: IconProps) => (
+  <svg {...stroke(props)}>
+    <line x1="4" y1="8" x2="20" y2="8" />
+    <circle cx="14" cy="8" r="2.4" fill="currentColor" stroke="none" />
+    <line x1="4" y1="16" x2="20" y2="16" />
+    <circle cx="9" cy="16" r="2.4" fill="currentColor" stroke="none" />
+  </svg>
+)
+
+export const ChevronLeftIcon = (props: IconProps) => (
+  <svg {...stroke(props)}>
+    <path d="m15 6-6 6 6 6" />
+  </svg>
+)
+
+export const ChevronRightIcon = (props: IconProps) => (
+  <svg {...stroke(props)}>
+    <path d="m9 6 6 6-6 6" />
+  </svg>
+)
+
+export const HeadphonesIcon = (props: IconProps) => (
+  <svg {...stroke(props)}>
+    <path d="M4 14v-1a8 8 0 0 1 16 0v1" />
+    <rect x="3" y="14" width="4" height="6" rx="1.5" fill="currentColor" stroke="none" />
+    <rect x="17" y="14" width="4" height="6" rx="1.5" fill="currentColor" stroke="none" />
+  </svg>
+)
+
+export const BookIcon = (props: IconProps) => (
+  <svg {...stroke(props)}>
+    <path d="M12 6.5C10.5 5 8 4.5 4 4.8v12.4c4-.3 6.5.2 8 1.7 1.5-1.5 4-2 8-1.7V4.8c-4-.3-6.5.2-8 1.7Z" />
+    <path d="M12 6.5V19" />
+  </svg>
+)
+
 export const ExternalIcon = (props: IconProps) => (
   <svg {...stroke(props)}>
     <path d="M14 4h6v6" />

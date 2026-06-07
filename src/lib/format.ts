@@ -5,6 +5,16 @@ export function formatTime(sec: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
+const ARABIC_DIGITS = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩']
+
+/** Render a number with Arabic-Indic digits, e.g. 255 → ٢٥٥ */
+export function toArabicNumber(n: number): string {
+  return String(n)
+    .split('')
+    .map((d) => ARABIC_DIGITS[Number(d)] ?? d)
+    .join('')
+}
+
 export function formatBytes(bytes: number): string {
   if (bytes <= 0) return '0 MB'
   const mb = bytes / (1024 * 1024)

@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { audioKey, deleteAudio, getDownloadedKeys, getMeta, setMeta, totalCacheSize } from '../lib/db'
 import { downloadChapter } from '../lib/download'
+import { getChapterVerses } from '../lib/verses'
 import type { DownloadProgress } from '../lib/types'
 
 // In-flight requests live outside React state — they aren't serialisable.
@@ -66,6 +67,8 @@ export const useDownloads = create<DownloadsState>((set, get) => ({
         delete progress[key]
         return { downloaded, progress, cacheSize: size }
       })
+      // Cache the Arabic text too, so a downloaded surah is also readable offline.
+      void getChapterVerses(chapterId).catch(() => {})
     } catch (err) {
       if (controller.signal.aborted) {
         set((s) => {

@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie'
-import type { AudioRecord } from './types'
+import type { AudioRecord, VerseRecord } from './types'
 
 export function audioKey(reciterId: number, chapterId: number): string {
   return `${reciterId}:${chapterId}`
@@ -8,6 +8,7 @@ export function audioKey(reciterId: number, chapterId: number): string {
 /** IndexedDB store for downloaded surah audio + small key/value app state. */
 class QuranDB extends Dexie {
   audio!: Table<AudioRecord, string>
+  verses!: Table<VerseRecord, number>
   meta!: Table<{ key: string; value: unknown }, string>
 
   constructor() {
@@ -16,6 +17,31 @@ class QuranDB extends Dexie {
       audio: 'key, reciterId, chapterId, savedAt',
       meta: 'key',
     })
+    this.version(2).stores({
+      audio: 'key, reciterId, chapterId, savedAt',
+      meta: 'key',
+      verses: 'chapterId',
+    })
+    // v3 adds mushaf page/juz to cached verses — clear old text so it re-fetches.
+    this.version(3)
+      .stores({
+        audio: 'key, reciterId, chapterId, savedAt',
+        meta: 'key',
+        verses: 'chapterId',
+      })
+      .upgrade(async (tx) => {
+        await tx.table('verses').clear()
+      })
+    // v4 adds IndoPak + Tajweed scripts to cached verses — clear again to re-fetch.
+    this.version(4)
+      .stores({
+        audio: 'key, reciterId, chapterId, savedAt',
+        meta: 'key',
+        verses: 'chapterId',
+      })
+      .upgrade(async (tx) => {
+        await tx.table('verses').clear()
+      })
   }
 }
 

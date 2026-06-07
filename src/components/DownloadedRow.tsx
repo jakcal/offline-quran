@@ -2,7 +2,8 @@ import { memo } from 'react'
 import { CHAPTER_BY_ID, RECITERS } from '../data'
 import { useDownloads } from '../store/downloads'
 import { usePlayer } from '../store/player'
-import { PauseIcon, PlayIcon, TrashIcon } from './icons'
+import { useReader } from '../store/reader'
+import { BookIcon, PauseIcon, PlayIcon, TrashIcon } from './icons'
 
 /** A single downloaded recording — a (reciter, surah) pair shown in the Offline tab. */
 function DownloadedRowImpl({ reciterId, chapterId }: { reciterId: number; chapterId: number }) {
@@ -11,6 +12,7 @@ function DownloadedRowImpl({ reciterId, chapterId }: { reciterId: number; chapte
   const play = usePlayer((s) => s.play)
   const toggle = usePlayer((s) => s.toggle)
   const remove = useDownloads((s) => s.remove)
+  const openReader = useReader((s) => s.open)
 
   const chapter = CHAPTER_BY_ID.get(chapterId)
   const reciter = RECITERS.find((r) => r.id === reciterId)
@@ -27,7 +29,7 @@ function DownloadedRowImpl({ reciterId, chapterId }: { reciterId: number; chapte
         type="button"
         onClick={() => (active ? toggle() : void play(chapterId, reciterId))}
         className={`flex w-full items-center gap-3 rounded-card px-3 py-2.5 text-left transition-colors ${
-          active ? 'bg-brand-50' : 'active:bg-line'
+          active ? 'bg-brand-50' : 'hover:bg-line/70 active:bg-line'
         }`}
       >
         <span
@@ -52,8 +54,28 @@ function DownloadedRowImpl({ reciterId, chapterId }: { reciterId: number; chapte
           </span>
         </span>
 
-        <span className="font-arabic shrink-0 text-xl leading-none" dir="rtl">
+        <span className="font-arabic hidden shrink-0 text-lg leading-none sm:block" dir="rtl">
           {chapter.nameArabic}
+        </span>
+
+        <span
+          role="button"
+          tabIndex={0}
+          aria-label="Read surah"
+          onClick={(e) => {
+            e.stopPropagation()
+            openReader(chapterId)
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              e.stopPropagation()
+              openReader(chapterId)
+            }
+          }}
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-muted active:bg-line"
+        >
+          <BookIcon className="h-5 w-5" />
         </span>
 
         <span

@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { usePlayer } from '../store/player'
+import { useReader } from '../store/reader'
 
 /**
  * Global desktop keyboard controls. Active everywhere except text inputs.
@@ -17,6 +18,8 @@ export function useKeyboardShortcuts() {
       const tag = t?.tagName
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || t?.isContentEditable) return
       if (e.metaKey || e.ctrlKey || e.altKey) return
+      // The reader handles its own keys (page turn, Esc) while open.
+      if (useReader.getState().chapterId !== null) return
       // Don't double-fire when a button/link is focused (it handles Space itself).
       if (e.key === ' ' && (tag === 'BUTTON' || tag === 'A' || t?.getAttribute('role') === 'button')) return
 

@@ -1,7 +1,34 @@
 import { RECITERS } from '../data'
-import type { Reciter } from './types'
+import type { Reciter, VerseText } from './types'
 
 const BASE = 'https://api.quran.com/api/v4'
+
+/** Fetch a chapter's text in all scripts (Uthmani, IndoPak, Tajweed) + page/juz, one request. */
+export async function fetchChapterVerses(chapterId: number): Promise<VerseText[]> {
+  const fields = 'text_uthmani,text_indopak,text_uthmani_tajweed'
+  const res = await fetch(`${BASE}/verses/by_chapter/${chapterId}?fields=${fields}&per_page=300&page=1`)
+  if (!res.ok) throw new Error(`Failed to load text (HTTP ${res.status})`)
+  const json = (await res.json()) as {
+    verses?: {
+      verse_key: string
+      verse_number: number
+      text_uthmani: string
+      text_indopak: string
+      text_uthmani_tajweed: string
+      page_number: number
+      juz_number: number
+    }[]
+  }
+  return (json.verses ?? []).map((v) => ({
+    key: v.verse_key,
+    text: v.text_uthmani,
+    indopak: v.text_indopak,
+    tajweed: v.text_uthmani_tajweed,
+    verseNumber: v.verse_number,
+    page: v.page_number,
+    juz: v.juz_number,
+  }))
+}
 
 /**
  * Resolve the public MP3 URL for a full chapter by a given reciter.
