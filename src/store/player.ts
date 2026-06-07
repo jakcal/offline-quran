@@ -19,6 +19,28 @@ function setSource(src: string, isObjectUrl: boolean) {
   audio.src = src
 }
 
+// Resume support: seek to a saved position once the audio metadata is ready.
+let pendingSeek: number | null = null
+function applyPendingSeek() {
+  if (pendingSeek == null) return
+  if (Number.isFinite(audio.duration) && audio.duration > 0) {
+    audio.currentTime = Math.min(pendingSeek, Math.max(0, audio.duration - 1))
+    pendingSeek = null
+  }
+}
+
+// Throttled persistence of listening progress for "Continue listening".
+let lastProgressSave = 0
+function saveProgress(force = false) {
+  const now = Date.now()
+  if (!force && now - lastProgressSave < 4000) return
+  lastProgressSave = now
+  const { chapterId, reciterId } = usePlayer.getState()
+  if (chapterId != null && Number.isFinite(audio.duration) && audio.duration > 0) {
+    useRecents.getState().setLastListened(chapterId, reciterId, audio.currentTime, audio.duration)
+  }
+}
+
 interface PlayerState {
   reciterId: number
   chapterId: number | null
@@ -33,8 +55,8 @@ interface PlayerState {
 
   setReciter: (id: number) => void
   setVolume: (v: number) => void
-  /** Play a surah. Pass `reciterId` to play a specific reciter's recording (e.g. an offline item). */
-  play: (chapterId: number, reciterId?: number) => Promise<void>
+  /** Play a surah. `reciterId` plays a specific recording; `startAt` resumes from a saved position. */
+  play: (chapterId: number, reciterId?: number, startAt?: number) => Promise<void>
   toggle: () => void
   seek: (time: number) => void
   next: () => void
@@ -67,14 +89,15 @@ export const usePlayer = create<PlayerState>((set, get) => ({
     if (chapterId != null) void get().play(chapterId)
   },
 
-  play: async (chapterId, reciterIdOverride) => {
+  play: async (chapterId, reciterIdOverride, startAt) => {
     const reciterId = reciterIdOverride ?? get().reciterId
     if (reciterIdOverride != null && reciterIdOverride !== get().reciterId) {
       set({ reciterId: reciterIdOverride })
       void setMeta('reciterId', reciterIdOverride)
     }
     set({ chapterId, loading: true, error: null })
-    useRecents.getState().setLastListened(chapterId, reciterId)
+    useRecents.getState().setLastListened(chapterId, reciterId, startAt ?? 0, 0)
+    pendingSeek = startAt != null && startAt > 1 ? startAt : null
 
     try {
       const cached = await getAudio(reciterId, chapterId)
@@ -94,6 +117,7 @@ export const usePlayer = create<PlayerState>((set, get) => ({
       }
 
       await audio.play()
+      applyPendingSeek()
       updateMediaSession()
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Could not play this surah'
@@ -152,12 +176,18 @@ audio.addEventListener('play', () => {
 audio.addEventListener('pause', () => {
   usePlayer.setState({ isPlaying: false })
   syncPlaybackState()
+  saveProgress(true)
+})
+audio.addEventListener('loadedmetadata', () => {
+  applyPendingSeek()
+  updatePositionState()
 })
 audio.addEventListener('playing', () => usePlayer.setState({ isPlaying: true, loading: false }))
 audio.addEventListener('waiting', () => usePlayer.setState({ loading: true }))
 audio.addEventListener('timeupdate', () => {
   usePlayer.setState({ currentTime: audio.currentTime })
   updatePositionState()
+  saveProgress()
 })
 audio.addEventListener('durationchange', () => {
   usePlayer.setState({ duration: Number.isFinite(audio.duration) ? audio.duration : 0 })

@@ -1,9 +1,11 @@
 import { CHAPTER_BY_ID, RECITERS } from '../data'
 import { audioKey } from '../lib/db'
+import { useBookmarks } from '../store/bookmarks'
 import { useDownloads } from '../store/downloads'
 import { usePlayer } from '../store/player'
 import { useReader } from '../store/reader'
 import { useReciterSheet } from '../store/reciterSheet'
+import { useRecents } from '../store/recents'
 import { useSurahSheet } from '../store/surahSheet'
 import { BookIcon, CheckIcon, CloseIcon, DownloadIcon, HeadphonesIcon, MicIcon, SpinnerIcon, TrashIcon } from './icons'
 
@@ -27,6 +29,9 @@ function SurahSheetView({ chapterId }: { chapterId: number }) {
   const cancel = useDownloads((s) => s.cancel)
   const remove = useDownloads((s) => s.remove)
 
+  const lastListened = useRecents((s) => s.lastListened)
+  const lastRead = useBookmarks((s) => s.lastRead)
+
   const chapter = CHAPTER_BY_ID.get(chapterId)!
   const reciter = RECITERS.find((r) => r.id === reciterId)
   const place = chapter.revelationPlace.charAt(0).toUpperCase() + chapter.revelationPlace.slice(1)
@@ -34,8 +39,16 @@ function SurahSheetView({ chapterId }: { chapterId: number }) {
   const downloading = progress?.state === 'downloading'
   const pct = downloading && progress.total ? Math.round((progress.received / progress.total) * 100) : null
 
+  const resumeAt =
+    lastListened && lastListened.chapterId === chapterId && lastListened.reciterId === reciterId && lastListened.duration > 0
+      ? lastListened
+      : null
+  const listenPct = resumeAt ? Math.min(100, (resumeAt.position / resumeAt.duration) * 100) : 0
+  const readVerse = lastRead && lastRead.chapterId === chapterId && lastRead.verseKey ? Number(lastRead.verseKey.split(':')[1]) : 0
+  const readPct = readVerse ? Math.min(100, (readVerse / chapter.versesCount) * 100) : 0
+
   const onListen = () => {
-    void play(chapterId)
+    void play(chapterId, reciterId, resumeAt ? resumeAt.position : undefined)
     close()
   }
   const onRead = () => {
@@ -78,7 +91,12 @@ function SurahSheetView({ chapterId }: { chapterId: number }) {
               className="flex flex-col items-center gap-1.5 rounded-card bg-brand px-4 py-5 font-semibold text-white transition-transform active:scale-[0.98]"
             >
               <HeadphonesIcon className="h-7 w-7" />
-              Listen
+              {resumeAt ? 'Resume' : 'Listen'}
+              {listenPct > 0 && (
+                <span className="mt-1 h-1 w-full overflow-hidden rounded-full bg-white/25">
+                  <span className="block h-full rounded-full bg-white" style={{ width: `${listenPct}%` }} />
+                </span>
+              )}
             </button>
             <button
               type="button"
@@ -87,6 +105,11 @@ function SurahSheetView({ chapterId }: { chapterId: number }) {
             >
               <BookIcon className="h-7 w-7" />
               Read
+              {readPct > 0 && (
+                <span className="mt-1 h-1 w-full overflow-hidden rounded-full bg-line">
+                  <span className="block h-full rounded-full bg-brand" style={{ width: `${readPct}%` }} />
+                </span>
+              )}
             </button>
           </div>
 

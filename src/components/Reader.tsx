@@ -64,6 +64,7 @@ function ReaderView({ chapterId, onClose }: { chapterId: number; onClose: () => 
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [pageIndex, setPageIndex] = useState(0)
   const [selected, setSelected] = useState<string | null>(null)
+  const [flashVerse, setFlashVerse] = useState<string | null>(null)
   const [flash, setFlash] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const resumeKey = useRef(useBookmarks.getState().lastRead?.chapterId === chapterId ? useBookmarks.getState().lastRead?.verseKey ?? null : null)
@@ -134,11 +135,15 @@ function ReaderView({ chapterId, onClose }: { chapterId: number; onClose: () => 
   useEffect(() => {
     if (resumed.current || !verses || !resumeKey.current) return
     const target = resumeKey.current
+    const markFlash = () => {
+      setFlashVerse(target)
+      window.setTimeout(() => setFlashVerse((f) => (f === target ? null : f)), 1900)
+    }
     if (view === 'paged') {
       const idx = pages.findIndex((pg) => pg.verses.some((v) => v.key === target))
       if (idx >= 0) {
         setPageIndex(idx)
-        setSelected(target)
+        markFlash()
         resumed.current = true
       }
       return
@@ -146,10 +151,34 @@ function ReaderView({ chapterId, onClose }: { chapterId: number; onClose: () => 
     const el = scrollRef.current?.querySelector(`[data-key="${target}"]`)
     if (el) {
       requestAnimationFrame(() => el.scrollIntoView({ block: 'center' }))
-      setSelected(target)
+      markFlash()
       resumed.current = true
     }
   }, [verses, view, pages])
+
+  // Auto-track reading position (separate from manual bookmarks).
+  useEffect(() => {
+    if (!paged || !currentPage) return
+    setLastRead(chapterId, currentPage.verses[0].key)
+  }, [paged, currentPage, chapterId, setLastRead])
+
+  useEffect(() => {
+    if (view !== 'continuous') return
+    const el = scrollRef.current
+    if (!el) return
+    let last = 0
+    const onScroll = () => {
+      const now = Date.now()
+      if (now - last < 600) return
+      last = now
+      const rect = el.getBoundingClientRect()
+      const probe = document.elementFromPoint(rect.left + rect.width / 2, rect.top + 96)
+      const key = probe?.closest('[data-key]')?.getAttribute('data-key')
+      if (key) setLastRead(chapterId, key)
+    }
+    el.addEventListener('scroll', onScroll, { passive: true })
+    return () => el.removeEventListener('scroll', onScroll)
+  }, [view, chapterId, setLastRead])
 
   useEffect(() => {
     if (!paged) return
@@ -201,7 +230,7 @@ function ReaderView({ chapterId, onClose }: { chapterId: number; onClose: () => 
             onClick={() => onSelect(v.key)}
             className="cursor-pointer rounded-lg transition-colors"
             style={{
-              background: isSel ? p.sel : 'transparent',
+              background: isSel || flashVerse === v.key ? p.sel : 'transparent',
               padding: '0.04em 0.18em',
               boxDecorationBreak: 'clone',
               WebkitBoxDecorationBreak: 'clone',

@@ -1,8 +1,10 @@
 import { memo } from 'react'
 import { audioKey } from '../lib/db'
 import type { Chapter } from '../lib/types'
+import { useBookmarks } from '../store/bookmarks'
 import { useDownloads } from '../store/downloads'
 import { usePlayer } from '../store/player'
+import { useRecents } from '../store/recents'
 import { useSurahSheet } from '../store/surahSheet'
 import { CheckIcon, ChevronRightIcon, PauseIcon, PlayIcon } from './icons'
 
@@ -13,12 +15,23 @@ function SurahRowImpl({ chapter }: { chapter: Chapter }) {
   const downloaded = useDownloads((s) => s.downloaded.has(audioKey(reciterId, chapter.id)))
   const openSheet = useSurahSheet((s) => s.open)
 
+  // Progress for this surah only (listening for the current reciter, else reading).
+  const listenProg = useRecents((s) => {
+    const l = s.lastListened
+    return l && l.chapterId === chapter.id && l.reciterId === reciterId && l.duration > 0 ? l.position / l.duration : 0
+  })
+  const readProg = useBookmarks((s) => {
+    const r = s.lastRead
+    return r && r.chapterId === chapter.id && r.verseKey ? Number(r.verseKey.split(':')[1]) / chapter.versesCount : 0
+  })
+  const progress = listenProg > 0 ? listenProg : readProg
+
   return (
     <li>
       <button
         type="button"
         onClick={() => openSheet(chapter.id)}
-        className={`flex w-full items-center gap-3 rounded-card px-3 py-2.5 text-left transition-colors ${
+        className={`relative flex w-full items-center gap-3 rounded-card px-3 py-2.5 text-left transition-colors ${
           active ? 'bg-brand-50' : 'hover:bg-line/70 active:bg-line'
         }`}
       >
@@ -43,6 +56,12 @@ function SurahRowImpl({ chapter }: { chapter: Chapter }) {
 
         {downloaded && <CheckIcon className="h-4 w-4 shrink-0 text-brand" />}
         <ChevronRightIcon className="h-5 w-5 shrink-0 text-muted/50" />
+
+        {progress > 0 && (
+          <span className="pointer-events-none absolute inset-x-3 bottom-1 h-0.5 overflow-hidden rounded-full bg-line">
+            <span className="block h-full rounded-full bg-brand" style={{ width: `${Math.min(100, progress * 100)}%` }} />
+          </span>
+        )}
       </button>
     </li>
   )
