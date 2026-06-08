@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { track } from '../lib/analytics'
 import { audioKey, deleteAudio, getDownloadedKeys, getMeta, setMeta, totalCacheSize } from '../lib/db'
 import { downloadChapter } from '../lib/download'
 import { getChapterVerses } from '../lib/verses'
@@ -51,6 +52,7 @@ export const useDownloads = create<DownloadsState>((set, get) => ({
     const controller = new AbortController()
     controllers.set(key, controller)
     set((s) => ({ progress: { ...s.progress, [key]: { state: 'downloading', received: 0, total: 0 } } }))
+    track('download_start', { chapter_id: chapterId, reciter_id: reciterId })
 
     try {
       await downloadChapter(reciterId, chapterId, {
@@ -67,6 +69,7 @@ export const useDownloads = create<DownloadsState>((set, get) => ({
         delete progress[key]
         return { downloaded, progress, cacheSize: size }
       })
+      track('download_complete', { chapter_id: chapterId, reciter_id: reciterId })
       // Cache the Arabic text too, so a downloaded surah is also readable offline.
       void getChapterVerses(chapterId).catch(() => {})
     } catch (err) {
@@ -79,6 +82,7 @@ export const useDownloads = create<DownloadsState>((set, get) => ({
       } else {
         const message = err instanceof Error ? err.message : 'Download failed'
         set((s) => ({ progress: { ...s.progress, [key]: { state: 'error', received: 0, total: 0, error: message } } }))
+        track('download_error', { chapter_id: chapterId, reciter_id: reciterId })
       }
     } finally {
       controllers.delete(key)
@@ -87,11 +91,13 @@ export const useDownloads = create<DownloadsState>((set, get) => ({
 
   cancel: (reciterId, chapterId) => {
     controllers.get(audioKey(reciterId, chapterId))?.abort()
+    track('download_cancel', { chapter_id: chapterId, reciter_id: reciterId })
   },
 
   remove: async (reciterId, chapterId) => {
     const key = audioKey(reciterId, chapterId)
     controllers.get(key)?.abort()
+    track('download_remove', { chapter_id: chapterId, reciter_id: reciterId })
     await deleteAudio(reciterId, chapterId)
     const size = await totalCacheSize()
     set((s) => {

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CHAPTER_BY_ID } from '../data'
+import { track } from '../lib/analytics'
 import { toArabicNumber } from '../lib/format'
 import { parseTajweed, TAJWEED_LEGEND, tajweedColor } from '../lib/tajweed'
 import type { VerseText } from '../lib/types'
@@ -85,6 +86,7 @@ function ReaderView({ chapterId, onClose }: { chapterId: number; onClose: () => 
   const toggle = usePlayer((s) => s.toggle)
 
   useEffect(() => setLastRead(chapterId, resumeKey.current), [chapterId, setLastRead])
+  useEffect(() => track('open_reader', { chapter_id: chapterId }), [chapterId])
 
   useEffect(() => {
     let alive = true
@@ -208,6 +210,7 @@ function ReaderView({ chapterId, onClose }: { chapterId: number; onClose: () => 
     const v = selected && verseByKey.get(selected)
     if (!v) return
     void navigator.clipboard?.writeText(`${v.text}\n— Surah ${chapter.nameSimple} (${v.key})`)
+    track('verse_copy', { verse_key: v.key })
     doFlash('Copied')
   }
 
@@ -215,6 +218,7 @@ function ReaderView({ chapterId, onClose }: { chapterId: number; onClose: () => 
     const v = selected && verseByKey.get(selected)
     if (!v) return
     const text = `${v.text}\n— Surah ${chapter.nameSimple} (${v.key})`
+    track('verse_share', { verse_key: v.key, method: 'share' in navigator ? 'native' : 'copy' })
     if ('share' in navigator) void navigator.share({ title: `Surah ${chapter.nameSimple}`, text }).catch(() => {})
     else onCopy()
   }

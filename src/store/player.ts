@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { CHAPTER_BY_ID, DEFAULT_RECITER_ID, RECITERS } from '../data'
 import { fetchChapterAudioUrl } from '../lib/api'
+import { track } from '../lib/analytics'
 import { getAudio, setMeta } from '../lib/db'
 import { useDownloads } from './downloads'
 import { useRecents } from './recents'
@@ -98,6 +99,7 @@ export const usePlayer = create<PlayerState>((set, get) => ({
     set({ chapterId, loading: true, error: null })
     useRecents.getState().setLastListened(chapterId, reciterId, startAt ?? 0, 0)
     pendingSeek = startAt != null && startAt > 1 ? startAt : null
+    track('play_surah', { chapter_id: chapterId, reciter_id: reciterId, resumed: pendingSeek != null })
 
     try {
       const cached = await getAudio(reciterId, chapterId)

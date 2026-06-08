@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { RECITERS } from '../data'
+import { track } from '../lib/analytics'
 import { fetchReciters } from '../lib/api'
 import type { Reciter } from '../lib/types'
 import { usePlayer } from '../store/player'
@@ -41,6 +42,7 @@ export function ReciterSheet() {
                 <button
                   type="button"
                   onClick={() => {
+                    track('select_reciter', { reciter_id: r.id, reciter_name: r.name })
                     setReciter(r.id)
                     hide()
                   }}

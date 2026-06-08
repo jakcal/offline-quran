@@ -1,4 +1,6 @@
+import { useEffect } from 'react'
 import { CHAPTER_BY_ID, RECITERS } from '../data'
+import { track } from '../lib/analytics'
 import { audioKey } from '../lib/db'
 import { useBookmarks } from '../store/bookmarks'
 import { useDownloads } from '../store/downloads'
@@ -35,6 +37,10 @@ function SurahSheetView({ chapterId }: { chapterId: number }) {
   const chapter = CHAPTER_BY_ID.get(chapterId)!
   const reciter = RECITERS.find((r) => r.id === reciterId)
   const place = chapter.revelationPlace.charAt(0).toUpperCase() + chapter.revelationPlace.slice(1)
+
+  useEffect(() => {
+    track('open_surah_sheet', { chapter_id: chapterId })
+  }, [chapterId])
 
   const downloading = progress?.state === 'downloading'
   const pct = downloading && progress.total ? Math.round((progress.received / progress.total) * 100) : null

@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { track } from '../lib/analytics'
 
 export type ReaderTheme = 'light' | 'sepia' | 'green' | 'dark'
 export type ReaderView = 'continuous' | 'paged'
@@ -41,14 +42,39 @@ export const useReaderSettings = create<ReaderSettingsState>()(
       fontSize: 1.8,
       lineHeight: 2.45,
       hideMarkers: false,
-      setTheme: (theme) => set({ theme }),
-      setScript: (script) => set({ script }),
-      setView: (view) => set({ view }),
-      toggleMarkers: () => set((s) => ({ hideMarkers: !s.hideMarkers })),
-      incFont: () => set((s) => ({ fontSize: clamp(s.fontSize + FONT_STEP, FONT_MIN, FONT_MAX) })),
-      decFont: () => set((s) => ({ fontSize: clamp(s.fontSize - FONT_STEP, FONT_MIN, FONT_MAX) })),
-      incLine: () => set((s) => ({ lineHeight: clamp(s.lineHeight + LINE_STEP, LINE_MIN, LINE_MAX) })),
-      decLine: () => set((s) => ({ lineHeight: clamp(s.lineHeight - LINE_STEP, LINE_MIN, LINE_MAX) })),
+      setTheme: (theme) => {
+        track('reader_setting', { setting: 'theme', value: theme })
+        set({ theme })
+      },
+      setScript: (script) => {
+        track('reader_setting', { setting: 'script', value: script })
+        set({ script })
+      },
+      setView: (view) => {
+        track('reader_setting', { setting: 'layout', value: view })
+        set({ view })
+      },
+      toggleMarkers: () =>
+        set((s) => {
+          track('reader_setting', { setting: 'hide_markers', value: !s.hideMarkers })
+          return { hideMarkers: !s.hideMarkers }
+        }),
+      incFont: () => {
+        track('reader_setting', { setting: 'font_size', value: 'inc' })
+        set((s) => ({ fontSize: clamp(s.fontSize + FONT_STEP, FONT_MIN, FONT_MAX) }))
+      },
+      decFont: () => {
+        track('reader_setting', { setting: 'font_size', value: 'dec' })
+        set((s) => ({ fontSize: clamp(s.fontSize - FONT_STEP, FONT_MIN, FONT_MAX) }))
+      },
+      incLine: () => {
+        track('reader_setting', { setting: 'line_spacing', value: 'inc' })
+        set((s) => ({ lineHeight: clamp(s.lineHeight + LINE_STEP, LINE_MIN, LINE_MAX) }))
+      },
+      decLine: () => {
+        track('reader_setting', { setting: 'line_spacing', value: 'dec' })
+        set((s) => ({ lineHeight: clamp(s.lineHeight - LINE_STEP, LINE_MIN, LINE_MAX) }))
+      },
     }),
     { name: 'quran-reader-settings' },
   ),

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { track } from './analytics'
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>
@@ -25,10 +26,12 @@ export function useInstallPrompt() {
     const onPrompt = (e: Event) => {
       e.preventDefault() // stop Chrome's default mini-infobar; we show our own button
       setDeferred(e as BeforeInstallPromptEvent)
+      track('install_available')
     }
     const onInstalled = () => {
       setInstalled(true)
       setDeferred(null)
+      track('pwa_installed')
     }
     window.addEventListener('beforeinstallprompt', onPrompt)
     window.addEventListener('appinstalled', onInstalled)
@@ -43,7 +46,8 @@ export function useInstallPrompt() {
   const promptInstall = async () => {
     if (!deferred) return
     await deferred.prompt()
-    await deferred.userChoice
+    const choice = await deferred.userChoice
+    track('install_choice', { outcome: choice.outcome })
     setDeferred(null)
   }
 

@@ -1,4 +1,5 @@
 import { CHAPTER_BY_ID, RECITERS } from '../data'
+import { track } from '../lib/analytics'
 import { formatTime } from '../lib/format'
 import { useBookmarks } from '../store/bookmarks'
 import { usePlayer } from '../store/player'
@@ -29,7 +30,10 @@ export function ContinueSection() {
         {listenCh && lastListened && (
           <button
             type="button"
-            onClick={() => void play(lastListened.chapterId, lastListened.reciterId, lastListened.position)}
+            onClick={() => {
+              track('resume_listening', { chapter_id: lastListened.chapterId, reciter_id: lastListened.reciterId })
+              void play(lastListened.chapterId, lastListened.reciterId, lastListened.position)
+            }}
             className="flex flex-col gap-2.5 rounded-card bg-brand px-4 py-3 text-left text-white transition-transform active:scale-[0.99]"
           >
             <div className="flex items-center gap-3">
@@ -58,7 +62,10 @@ export function ContinueSection() {
         {readCh && lastRead && (
           <button
             type="button"
-            onClick={() => openReader(lastRead.chapterId)}
+            onClick={() => {
+              track('resume_reading', { chapter_id: lastRead.chapterId })
+              openReader(lastRead.chapterId)
+            }}
             className="flex flex-col gap-2.5 rounded-card border border-line bg-surface px-4 py-3 text-left transition-colors hover:border-brand/40"
           >
             <div className="flex items-center gap-3">

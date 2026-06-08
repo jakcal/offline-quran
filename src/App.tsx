@@ -8,6 +8,7 @@ import { ReciterChip } from './components/ReciterChip'
 import { ReciterSheet } from './components/ReciterSheet'
 import { SurahList } from './components/SurahList'
 import { SurahSheet } from './components/SurahSheet'
+import { initAnalytics, track } from './lib/analytics'
 import { getMeta } from './lib/db'
 import { useKeyboardShortcuts } from './lib/useKeyboardShortcuts'
 import { useDownloads } from './store/downloads'
@@ -19,6 +20,11 @@ function App() {
   useKeyboardShortcuts()
 
   useEffect(() => {
+    initAnalytics()
+    track('app_open', {
+      standalone: window.matchMedia('(display-mode: standalone)').matches,
+      online: navigator.onLine,
+    })
     void useDownloads.getState().init()
     void getMeta<number>('reciterId').then((id) => {
       if (id != null) usePlayer.getState().setReciter(id)

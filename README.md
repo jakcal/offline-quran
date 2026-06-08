@@ -48,6 +48,23 @@ src/
                DownloadedRow (offline items), PlayerBar, About, Footer, icons
 ```
 
+## Analytics
+
+Optional Google Analytics 4. Set the Measurement ID to enable it:
+
+```bash
+cp .env.example .env   # then set VITE_GA_ID=G-XXXXXXXXXX
+```
+
+When `VITE_GA_ID` is unset, analytics is fully disabled (no script loads; events log
+to the console in dev). Wired via `src/lib/analytics.ts` and instrumented at the
+source (stores + key UI). Tracked events include: `app_open`, `play_surah`,
+`resume_listening` / `resume_reading`, `open_surah_sheet`, `open_reader`,
+`select_reciter`, `reader_setting`, `verse_copy` / `verse_share`,
+`bookmark_add` / `bookmark_remove`, `download_start` / `download_complete` /
+`download_error` / `download_cancel` / `download_remove`, `about_open`,
+`link_click`, `install_available` / `install_choice` / `pwa_installed`.
+
 ## License
 
 [MIT](LICENSE) © Yassine Chandid ([@jakcal](https://github.com/jakcal)).

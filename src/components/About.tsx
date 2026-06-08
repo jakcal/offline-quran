@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { track } from '../lib/analytics'
 import { LINKS } from '../lib/links'
 import { useIsDesktop } from '../lib/useIsDesktop'
 import { CloseIcon, ExternalIcon, GithubIcon, HeartIcon, InfoIcon } from './icons'
@@ -19,7 +20,10 @@ export function About() {
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          track('about_open')
+          setOpen(true)
+        }}
         aria-label="About this app"
         className="grid h-9 w-9 place-items-center rounded-full text-muted active:bg-line"
       >
@@ -64,6 +68,7 @@ export function About() {
                   href={LINKS.donate}
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={() => track('link_click', { target: 'donate' })}
                   className="flex items-center justify-center gap-2 rounded-card bg-brand px-4 py-3.5 font-semibold text-white active:scale-[0.99] transition-transform"
                 >
                   <HeartIcon className="h-5 w-5" />
@@ -73,6 +78,7 @@ export function About() {
                   href={LINKS.repo}
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={() => track('link_click', { target: 'github' })}
                   className="flex items-center gap-3 rounded-card border border-line px-4 py-3 active:bg-line"
                 >
                   <GithubIcon className="h-5 w-5" />
@@ -88,6 +94,7 @@ export function About() {
                   href={LINKS.authorGithub}
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={() => track('link_click', { target: 'author' })}
                   className="font-semibold text-brand hover:underline"
                 >
                   {LINKS.author}
@@ -115,7 +122,7 @@ export function About() {
               {/* Credit */}
               <p className="mt-6 text-center text-xs leading-relaxed text-muted">
                 Audio &amp; metadata from{' '}
-                <a href={LINKS.source} target="_blank" rel="noopener noreferrer" className="text-brand hover:underline">
+                <a href={LINKS.source} target="_blank" rel="noopener noreferrer" onClick={() => track('link_click', { target: 'source' })} className="text-brand hover:underline">
                   quran.com
                 </a>
                 .<br />
