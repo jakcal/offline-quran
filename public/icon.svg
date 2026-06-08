@@ -1,14 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Offline Quran">
-  <rect width="512" height="512" rx="112" fill="#0f766e"/>
+  <rect width="512" height="512" rx="112" fill="#9a6a2f"/>
   <!-- crescent + star -->
-  <circle cx="248" cy="150" r="50" fill="#f8f7f4"/>
-  <circle cx="270" cy="140" r="42" fill="#0f766e"/>
-  <circle cx="306" cy="150" r="9" fill="#f8f7f4"/>
+  <circle cx="248" cy="150" r="50" fill="#f4ecd8"/>
+  <circle cx="270" cy="140" r="42" fill="#9a6a2f"/>
+  <circle cx="306" cy="150" r="9" fill="#f4ecd8"/>
   <!-- open book -->
-  <path d="M256 250 L132 272 V364 L256 346 Z" fill="#f8f7f4"/>
-  <path d="M256 250 L380 272 V364 L256 346 Z" fill="#f8f7f4"/>
-  <rect x="251" y="250" width="10" height="96" rx="5" fill="#0f766e"/>
-  <g stroke="#0f766e" stroke-width="8" stroke-linecap="round">
+  <path d="M256 250 L132 272 V364 L256 346 Z" fill="#f4ecd8"/>
+  <path d="M256 250 L380 272 V364 L256 346 Z" fill="#f4ecd8"/>
+  <rect x="251" y="250" width="10" height="96" rx="5" fill="#9a6a2f"/>
+  <g stroke="#9a6a2f" stroke-width="8" stroke-linecap="round">
     <line x1="160" y1="298" x2="232" y2="288"/>
     <line x1="160" y1="320" x2="232" y2="310"/>
     <line x1="280" y1="288" x2="352" y2="298"/>

@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { ContinueSection } from './components/ContinueSection'
+import { DownloadAllButton } from './components/DownloadAllButton'
 import { Footer } from './components/Footer'
 import { Header } from './components/Header'
 import { PlayerBar } from './components/PlayerBar'
@@ -38,6 +39,7 @@ function App() {
         <div className="mx-auto w-full max-w-2xl space-y-3 px-3 pt-4">
           <ContinueSection />
           <ReciterChip />
+          <DownloadAllButton />
         </div>
         <div className="mt-4">
           <SurahList />
