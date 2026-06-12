@@ -30,6 +30,9 @@ function App() {
     void getMeta<number>('reciterId').then((id) => {
       if (id != null) usePlayer.getState().setReciter(id)
     })
+    void getMeta<number>('speed').then((s) => {
+      if (s != null) usePlayer.getState().setSpeed(s)
+    })
   }, [])
 
   return (

@@ -27,6 +27,8 @@ export function PlayerBar() {
   const next = usePlayer((s) => s.next)
   const prev = usePlayer((s) => s.prev)
   const seek = usePlayer((s) => s.seek)
+  const speed = usePlayer((s) => s.speed)
+  const setSpeed = usePlayer((s) => s.setSpeed)
 
   const key = chapterId != null ? audioKey(reciterId, chapterId) : ''
   const downloaded = useDownloads((s) => (key ? s.downloaded.has(key) : false))
@@ -36,6 +38,12 @@ export function PlayerBar() {
   const chapter = CHAPTER_BY_ID.get(chapterId)
   if (!chapter) return null
   const reciter = RECITERS.find((r) => r.id === reciterId)
+
+  const SPEEDS = [0.75, 1, 1.25, 1.5, 1.75, 2]
+  const cycleSpeed = () => {
+    const i = SPEEDS.indexOf(speed)
+    setSpeed(SPEEDS[(i + 1) % SPEEDS.length] ?? 1)
+  }
 
   const savePct = progress?.state === 'downloading' && progress.total
     ? Math.round((progress.received / progress.total) * 100)
@@ -97,6 +105,15 @@ export function PlayerBar() {
           </div>
 
           <div className="flex shrink-0 items-center gap-1">
+            <button
+              type="button"
+              onClick={cycleSpeed}
+              aria-label={`Playback speed ${speed}×`}
+              className="grid h-10 w-10 place-items-center rounded-full text-xs font-semibold tabular-nums text-ink active:bg-line"
+            >
+              {speed}×
+            </button>
+
             <button
               type="button"
               onClick={prev}

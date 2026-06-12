@@ -53,9 +53,11 @@ interface PlayerState {
   currentTime: number
   duration: number
   volume: number
+  speed: number
 
   setReciter: (id: number) => void
   setVolume: (v: number) => void
+  setSpeed: (s: number) => void
   /** Play a surah. `reciterId` plays a specific recording; `startAt` resumes from a saved position. */
   play: (chapterId: number, reciterId?: number, startAt?: number) => Promise<void>
   toggle: () => void
@@ -74,11 +76,19 @@ export const usePlayer = create<PlayerState>((set, get) => ({
   currentTime: 0,
   duration: 0,
   volume: 1,
+  speed: 1,
 
   setVolume: (v) => {
     const vol = Math.min(1, Math.max(0, v))
     audio.volume = vol
     set({ volume: vol })
+  },
+
+  setSpeed: (s) => {
+    const speed = Math.min(4, Math.max(0.25, s))
+    audio.playbackRate = speed
+    set({ speed })
+    void setMeta('speed', speed)
   },
 
   setReciter: (id) => {
@@ -118,6 +128,7 @@ export const usePlayer = create<PlayerState>((set, get) => ({
         if (useDownloads.getState().autoDownload) void useDownloads.getState().ensure(reciterId, chapterId, url)
       }
 
+      audio.playbackRate = get().speed
       await audio.play()
       applyPendingSeek()
       updateMediaSession()
