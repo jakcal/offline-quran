@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import { CHAPTER_BY_ID, RECITERS } from '../data'
 import { audioKey } from '../lib/db'
 import { formatTime } from '../lib/format'
@@ -34,16 +35,57 @@ export function PlayerBar() {
   const downloaded = useDownloads((s) => (key ? s.downloaded.has(key) : false))
   const progress = useDownloads((s) => (key ? s.progress[key] : undefined))
 
+  const [speedOpen, setSpeedOpen] = useState(false)
+  const speedRef = useRef<HTMLDivElement>(null)
+  const speedBtnRef = useRef<HTMLButtonElement>(null)
+  const speedMenuRef = useRef<HTMLDivElement>(null)
+
+  const closeSpeed = (returnFocus = false) => {
+    setSpeedOpen(false)
+    if (returnFocus) speedBtnRef.current?.focus()
+  }
+
+  // Close the speed menu on outside tap / Escape, and move focus into it on open.
+  useEffect(() => {
+    if (!speedOpen) return
+    speedMenuRef.current?.querySelector<HTMLButtonElement>('[aria-checked="true"]')?.focus()
+    const onDown = (e: PointerEvent) => {
+      if (!speedRef.current?.contains(e.target as Node)) setSpeedOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeSpeed(true)
+    }
+    document.addEventListener('pointerdown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('pointerdown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [speedOpen])
+
+  // Roving arrow-key navigation between speed options while the menu is open.
+  const onSpeedMenuKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const nav: Record<string, (i: number, n: number) => number> = {
+      ArrowDown: (i, n) => (i + 1) % n,
+      ArrowUp: (i, n) => (i - 1 + n) % n,
+      Home: () => 0,
+      End: (_i, n) => n - 1,
+    }
+    const move = nav[e.key]
+    if (!move) return
+    const items = Array.from(speedMenuRef.current?.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]') ?? [])
+    if (!items.length) return
+    e.preventDefault()
+    const i = items.indexOf(document.activeElement as HTMLButtonElement)
+    items[move(i, items.length)]?.focus()
+  }
+
   if (chapterId == null) return null
   const chapter = CHAPTER_BY_ID.get(chapterId)
   if (!chapter) return null
   const reciter = RECITERS.find((r) => r.id === reciterId)
 
-  const SPEEDS = [0.75, 1, 1.25, 1.5, 1.75, 2]
-  const cycleSpeed = () => {
-    const i = SPEEDS.indexOf(speed)
-    setSpeed(SPEEDS[(i + 1) % SPEEDS.length] ?? 1)
-  }
+  const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2]
 
   const savePct = progress?.state === 'downloading' && progress.total
     ? Math.round((progress.received / progress.total) * 100)
@@ -105,14 +147,54 @@ export function PlayerBar() {
           </div>
 
           <div className="flex shrink-0 items-center gap-1">
-            <button
-              type="button"
-              onClick={cycleSpeed}
-              aria-label={`Playback speed ${speed}×`}
-              className="grid h-10 w-10 place-items-center rounded-full text-xs font-semibold tabular-nums text-ink active:bg-line"
-            >
-              {speed}×
-            </button>
+            <div ref={speedRef} className="relative">
+              <button
+                ref={speedBtnRef}
+                type="button"
+                onClick={() => setSpeedOpen((o) => !o)}
+                aria-label={`Playback speed ${speed}×`}
+                aria-haspopup="menu"
+                aria-expanded={speedOpen}
+                className={`grid h-10 w-10 place-items-center rounded-full text-xs font-semibold tabular-nums transition-colors ${
+                  speedOpen ? 'bg-brand-50 text-brand' : 'text-ink active:bg-line'
+                }`}
+              >
+                {speed}×
+              </button>
+
+              {speedOpen && (
+                <div
+                  ref={speedMenuRef}
+                  role="menu"
+                  aria-label="Playback speed"
+                  onKeyDown={onSpeedMenuKey}
+                  className="absolute bottom-full right-0 z-40 mb-2 w-32 overflow-hidden rounded-2xl border border-line bg-surface p-1 shadow-xl"
+                >
+                  <p className="px-3 pb-1 pt-1.5 text-[10px] font-bold uppercase tracking-wide text-muted">Speed</p>
+                  {SPEEDS.map((s) => {
+                    const active = s === speed
+                    return (
+                      <button
+                        key={s}
+                        type="button"
+                        role="menuitemradio"
+                        aria-checked={active}
+                        onClick={() => {
+                          setSpeed(s)
+                          closeSpeed(true)
+                        }}
+                        className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-sm font-semibold tabular-nums ${
+                          active ? 'bg-brand-50 text-brand' : 'text-ink hover:bg-line/70 active:bg-line'
+                        }`}
+                      >
+                        <span>{s}×</span>
+                        {active && <CheckIcon className="h-4 w-4" />}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
 
             <button
               type="button"

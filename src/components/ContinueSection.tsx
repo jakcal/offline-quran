@@ -8,7 +8,7 @@ import { useRecents } from '../store/recents'
 import { BookIcon, HeadphonesIcon } from './icons'
 
 export function ContinueSection() {
-  const lastListened = useRecents((s) => s.lastListened)
+  const lastListened = useRecents((s) => (s.lastKey ? (s.entries[s.lastKey] ?? null) : null))
   const lastRead = useBookmarks((s) => s.lastRead)
   const play = usePlayer((s) => s.play)
   const openReader = useReader((s) => s.open)
@@ -32,7 +32,9 @@ export function ContinueSection() {
             type="button"
             onClick={() => {
               track('resume_listening', { chapter_id: lastListened.chapterId, reciter_id: lastListened.reciterId })
-              void play(lastListened.chapterId, lastListened.reciterId, lastListened.position)
+              // If the surah was finished, start it over instead of seeking to the end.
+              const atEnd = lastListened.duration > 0 && lastListened.duration - lastListened.position < 5
+              void play(lastListened.chapterId, lastListened.reciterId, atEnd ? 0 : lastListened.position)
             }}
             className="flex flex-col gap-2.5 rounded-card bg-brand px-4 py-3 text-left text-white transition-transform active:scale-[0.99]"
           >

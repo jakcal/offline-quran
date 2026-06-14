@@ -17,8 +17,8 @@ function SurahRowImpl({ chapter }: { chapter: Chapter }) {
 
   // Progress for this surah only (listening for the current reciter, else reading).
   const listenProg = useRecents((s) => {
-    const l = s.lastListened
-    return l && l.chapterId === chapter.id && l.reciterId === reciterId && l.duration > 0 ? l.position / l.duration : 0
+    const e = s.entries[audioKey(reciterId, chapter.id)]
+    return e && e.duration > 0 ? e.position / e.duration : 0
   })
   const readProg = useBookmarks((s) => {
     const r = s.lastRead

@@ -5,6 +5,7 @@ import { track } from '../lib/analytics'
 import { getAudio, setMeta } from '../lib/db'
 import { useDownloads } from './downloads'
 import { useRecents } from './recents'
+import { useStats } from './stats'
 
 // One audio element for the whole app, kept outside React state.
 const audio = new Audio()
@@ -25,9 +26,29 @@ let pendingSeek: number | null = null
 function applyPendingSeek() {
   if (pendingSeek == null) return
   if (Number.isFinite(audio.duration) && audio.duration > 0) {
-    audio.currentTime = Math.min(pendingSeek, Math.max(0, audio.duration - 1))
+    // If the saved spot is at/after this recording's end — e.g. resuming into a
+    // shorter reciter's version — start over rather than jumping to the very end
+    // (which would instantly fire 'ended' and auto-advance to the next surah).
+    audio.currentTime = pendingSeek < audio.duration - 2 ? pendingSeek : 0
     pendingSeek = null
   }
+}
+
+// ---- Listening-stats accumulation ---------------------------------------
+// Measures real audio-seconds heard by summing small timeupdate deltas, so
+// seeks and paused gaps don't inflate the totals.
+let lastTickTime = 0 // last currentTime observed while counting
+let unsavedSeconds = 0 // listened seconds not yet written to the stats store
+let lastStatsFlush = 0
+let countedChapter: number | null = null // chapter whose play we've already counted
+
+function flushStats() {
+  if (unsavedSeconds <= 0) return
+  const { chapterId } = usePlayer.getState()
+  const secs = unsavedSeconds
+  unsavedSeconds = 0
+  lastStatsFlush = Date.now()
+  if (chapterId != null) useStats.getState().addListen(chapterId, secs)
 }
 
 // Throttled persistence of listening progress for "Continue listening".
@@ -35,9 +56,11 @@ let lastProgressSave = 0
 function saveProgress(force = false) {
   const now = Date.now()
   if (!force && now - lastProgressSave < 4000) return
-  lastProgressSave = now
   const { chapterId, reciterId } = usePlayer.getState()
+  // Only advance the throttle clock once we actually persist, so a forced save
+  // before the duration is known doesn't suppress the next few real saves.
   if (chapterId != null && Number.isFinite(audio.duration) && audio.duration > 0) {
+    lastProgressSave = now
     useRecents.getState().setLastListened(chapterId, reciterId, audio.currentTime, audio.duration)
   }
 }
@@ -93,21 +116,34 @@ export const usePlayer = create<PlayerState>((set, get) => ({
 
   setReciter: (id) => {
     if (id === get().reciterId) return
+    const { chapterId, reciterId: prevReciter } = get()
     set({ reciterId: id })
     void setMeta('reciterId', id)
-    // Switching voice mid-listen re-plays the current surah with the new reciter.
-    const { chapterId } = get()
-    if (chapterId != null) void get().play(chapterId)
+    // Switching voice mid-listen swaps the recording but keeps your place (and
+    // play/pause state), rather than restarting the surah from the beginning.
+    if (chapterId != null) {
+      const saved = useRecents.getState().progressFor(chapterId, prevReciter)
+      // Prefer the live position; fall back to the saved one if the audio
+      // hasn't reported a real time yet (e.g. metadata still loading).
+      const at = audio.currentTime > 1 ? audio.currentTime : (saved?.position ?? 0)
+      const wasPaused = audio.paused
+      void get()
+        .play(chapterId, id, at)
+        .then(() => {
+          if (wasPaused) audio.pause()
+        })
+    }
   },
 
   play: async (chapterId, reciterIdOverride, startAt) => {
+    // Attribute any unsaved listening time to the outgoing surah before switching.
+    flushStats()
     const reciterId = reciterIdOverride ?? get().reciterId
     if (reciterIdOverride != null && reciterIdOverride !== get().reciterId) {
       set({ reciterId: reciterIdOverride })
       void setMeta('reciterId', reciterIdOverride)
     }
     set({ chapterId, loading: true, error: null })
-    useRecents.getState().setLastListened(chapterId, reciterId, startAt ?? 0, 0)
     pendingSeek = startAt != null && startAt > 1 ? startAt : null
     track('play_surah', { chapter_id: chapterId, reciter_id: reciterId, resumed: pendingSeek != null })
 
@@ -131,6 +167,9 @@ export const usePlayer = create<PlayerState>((set, get) => ({
       audio.playbackRate = get().speed
       await audio.play()
       applyPendingSeek()
+      // Record the now-playing surah only after playback actually started, so a
+      // surah that fails to play never wipes its own previously-saved position.
+      saveProgress(true)
       updateMediaSession()
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Could not play this surah'
@@ -185,11 +224,22 @@ function updatePositionState() {
 audio.addEventListener('play', () => {
   usePlayer.setState({ isPlaying: true })
   syncPlaybackState()
+  lastTickTime = audio.currentTime // baseline so the first delta isn't a seek jump
+  // Count a play once per surah session (reciter swaps / resumes keep the same id).
+  const { chapterId } = usePlayer.getState()
+  if (chapterId != null && chapterId !== countedChapter) {
+    countedChapter = chapterId
+    useStats.getState().addPlay(chapterId)
+  }
 })
 audio.addEventListener('pause', () => {
   usePlayer.setState({ isPlaying: false })
   syncPlaybackState()
   saveProgress(true)
+  flushStats()
+})
+audio.addEventListener('seeked', () => {
+  lastTickTime = audio.currentTime // don't count the jump as listened time
 })
 audio.addEventListener('loadedmetadata', () => {
   applyPendingSeek()
@@ -201,16 +251,41 @@ audio.addEventListener('timeupdate', () => {
   usePlayer.setState({ currentTime: audio.currentTime })
   updatePositionState()
   saveProgress()
+  // Sum only small forward deltas — a seek or buffering gap is ignored.
+  const t = audio.currentTime
+  const d = t - lastTickTime
+  lastTickTime = t
+  if (!audio.paused && d > 0 && d < 2) {
+    unsavedSeconds += d
+    if (Date.now() - lastStatsFlush > 10_000) flushStats()
+  }
 })
 audio.addEventListener('durationchange', () => {
   usePlayer.setState({ duration: Number.isFinite(audio.duration) ? audio.duration : 0 })
   updatePositionState()
 })
-audio.addEventListener('ended', () => usePlayer.getState().next())
+audio.addEventListener('ended', () => {
+  // Persist the finished surah's final position + listening time before advancing,
+  // since 'ended' doesn't fire 'pause' and the throttled save may be seconds old.
+  saveProgress(true)
+  flushStats()
+  usePlayer.getState().next()
+})
 audio.addEventListener('error', () => {
   if (usePlayer.getState().chapterId != null)
     usePlayer.setState({ loading: false, error: 'Playback error — the audio could not be loaded.' })
 })
+
+// Flush pending progress + stats when the tab is hidden or closed — mobile
+// browsers often don't fire 'pause' when the app is backgrounded or killed.
+const flushOnHide = () => {
+  saveProgress(true)
+  flushStats()
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') flushOnHide()
+})
+window.addEventListener('pagehide', flushOnHide)
 
 // ---- Lock-screen / media-key controls ----------------------------------
 function updateMediaSession() {

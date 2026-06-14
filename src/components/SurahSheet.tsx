@@ -2,12 +2,14 @@ import { useEffect } from 'react'
 import { CHAPTER_BY_ID, RECITERS } from '../data'
 import { track } from '../lib/analytics'
 import { audioKey } from '../lib/db'
+import { formatDuration } from '../lib/format'
 import { useBookmarks } from '../store/bookmarks'
 import { useDownloads } from '../store/downloads'
 import { usePlayer } from '../store/player'
 import { useReader } from '../store/reader'
 import { useReciterSheet } from '../store/reciterSheet'
 import { useRecents } from '../store/recents'
+import { useStats } from '../store/stats'
 import { useSurahSheet } from '../store/surahSheet'
 import { BookIcon, CheckIcon, CloseIcon, DownloadIcon, HeadphonesIcon, MicIcon, SpinnerIcon, TrashIcon } from './icons'
 
@@ -31,8 +33,9 @@ function SurahSheetView({ chapterId }: { chapterId: number }) {
   const cancel = useDownloads((s) => s.cancel)
   const remove = useDownloads((s) => s.remove)
 
-  const lastListened = useRecents((s) => s.lastListened)
+  const entry = useRecents((s) => s.entries[key])
   const lastRead = useBookmarks((s) => s.lastRead)
+  const stat = useStats((s) => s.byChapter[chapterId])
 
   const chapter = CHAPTER_BY_ID.get(chapterId)!
   const reciter = RECITERS.find((r) => r.id === reciterId)
@@ -45,10 +48,9 @@ function SurahSheetView({ chapterId }: { chapterId: number }) {
   const downloading = progress?.state === 'downloading'
   const pct = downloading && progress.total ? Math.round((progress.received / progress.total) * 100) : null
 
+  // Offer "Resume" only when there's a meaningful, unfinished position saved.
   const resumeAt =
-    lastListened && lastListened.chapterId === chapterId && lastListened.reciterId === reciterId && lastListened.duration > 0
-      ? lastListened
-      : null
+    entry && entry.duration > 0 && entry.position > 1 && entry.duration - entry.position > 3 ? entry : null
   const listenPct = resumeAt ? Math.min(100, (resumeAt.position / resumeAt.duration) * 100) : 0
   const readVerse = lastRead && lastRead.chapterId === chapterId && lastRead.verseKey ? Number(lastRead.verseKey.split(':')[1]) : 0
   const readPct = readVerse ? Math.min(100, (readVerse / chapter.versesCount) * 100) : 0
@@ -87,6 +89,11 @@ function SurahSheetView({ chapterId }: { chapterId: number }) {
             <p className="text-sm text-muted">
               {chapter.translatedName} · {place} · {chapter.versesCount} verses
             </p>
+            {stat && (stat.plays > 0 || stat.seconds > 0) && (
+              <p className="mt-2 rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand">
+                Listened {stat.plays}× · {formatDuration(stat.seconds)}
+              </p>
+            )}
           </div>
 
           {/* Primary actions */}
