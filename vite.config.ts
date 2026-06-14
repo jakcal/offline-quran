@@ -10,6 +10,9 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
+      // We register + drive periodic update checks ourselves (src/lib/pwa.ts),
+      // so disable the auto-injected registration to avoid double-registering.
+      injectRegister: null,
       includeAssets: ['icon.svg', 'maskable.svg'],
       manifest: {
         name: 'Offline Quran',
