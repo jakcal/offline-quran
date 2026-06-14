@@ -1,13 +1,15 @@
 import { useDownloads } from '../store/downloads'
 import { formatBytes } from '../lib/format'
 import { useOnlineStatus } from '../lib/useOnlineStatus'
-import { CloudOffIcon } from './icons'
+import { useSettingsSheet } from '../store/settingsSheet'
+import { CloudOffIcon, SlidersIcon } from './icons'
 import { InstallButton } from './InstallButton'
 import { About } from './About'
 
 export function Header() {
   const online = useOnlineStatus()
   const cacheSize = useDownloads((s) => s.cacheSize)
+  const showSettings = useSettingsSheet((s) => s.show)
 
   return (
     <header className="safe-top relative border-b border-line">
@@ -32,6 +34,14 @@ export function Header() {
             </span>
           )}
           <InstallButton />
+          <button
+            type="button"
+            onClick={showSettings}
+            aria-label="Reciter & downloads"
+            className="grid h-9 w-9 place-items-center rounded-full text-muted active:bg-line"
+          >
+            <SlidersIcon className="h-5 w-5" />
+          </button>
           <About />
         </div>
       </div>

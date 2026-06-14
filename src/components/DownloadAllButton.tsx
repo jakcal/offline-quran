@@ -3,7 +3,7 @@ import { audioKey } from '../lib/db'
 import { useOnlineStatus } from '../lib/useOnlineStatus'
 import { usePlayer } from '../store/player'
 import { useDownloads } from '../store/downloads'
-import { CheckIcon, CloseIcon, DownloadIcon, SpinnerIcon } from './icons'
+import { CloseIcon, DownloadIcon, SpinnerIcon } from './icons'
 
 const TOTAL = CHAPTERS.length
 
@@ -53,20 +53,8 @@ export function DownloadAllButton() {
     )
   }
 
-  // Everything is already cached for this reciter.
-  if (allSaved) {
-    return (
-      <div className="flex items-center gap-3 rounded-card border border-line bg-surface px-4 py-3">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand-50 text-brand">
-          <CheckIcon className="h-5 w-5" />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block font-semibold">All {TOTAL} surahs saved</span>
-          <span className="block text-xs text-muted">This reciter is fully available offline</span>
-        </span>
-      </div>
-    )
-  }
+  // Everything is already cached for this reciter — nothing to offer, so hide it.
+  if (allSaved) return null
 
   const remaining = TOTAL - savedCount
 
