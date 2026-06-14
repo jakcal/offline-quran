@@ -1,0 +1,10 @@
+[
+  { "slug": "bukhari", "name": "Sahih al-Bukhari", "arabic": "صحيح البخاري", "note": "Muhsin Khan", "eng": "eng-bukhari", "ara": "ara-bukhari" },
+  { "slug": "muslim", "name": "Sahih Muslim", "arabic": "صحيح مسلم", "note": "Abdul Hamid Siddiqui", "eng": "eng-muslim", "ara": "ara-muslim" },
+  { "slug": "abudawud", "name": "Sunan Abu Dawud", "arabic": "سنن أبي داود", "note": "", "eng": "eng-abudawud", "ara": "ara-abudawud" },
+  { "slug": "tirmidhi", "name": "Jami at-Tirmidhi", "arabic": "جامع الترمذي", "note": "", "eng": "eng-tirmidhi", "ara": "ara-tirmidhi" },
+  { "slug": "nasai", "name": "Sunan an-Nasa'i", "arabic": "سنن النسائي", "note": "", "eng": "eng-nasai", "ara": "ara-nasai" },
+  { "slug": "ibnmajah", "name": "Sunan Ibn Majah", "arabic": "سنن ابن ماجه", "note": "", "eng": "eng-ibnmajah", "ara": "ara-ibnmajah" },
+  { "slug": "nawawi", "name": "40 Hadith Nawawi", "arabic": "الأربعون النووية", "note": "Imam an-Nawawi", "eng": "eng-nawawi", "ara": "ara-nawawi" },
+  { "slug": "qudsi", "name": "40 Hadith Qudsi", "arabic": "الأربعون القدسية", "note": "", "eng": "eng-qudsi", "ara": "ara-qudsi" }
+]

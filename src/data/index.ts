@@ -1,5 +1,6 @@
-import type { Chapter, Reciter } from '../lib/types'
+import type { Chapter, HadithCollection, Reciter } from '../lib/types'
 import chaptersJson from './chapters.json'
+import hadithJson from './hadithCollections.json'
 import recitersJson from './reciters.json'
 
 /**
@@ -9,6 +10,7 @@ import recitersJson from './reciters.json'
  */
 export const CHAPTERS = chaptersJson as Chapter[]
 export const RECITERS = recitersJson as Reciter[]
+export const HADITH_COLLECTIONS = hadithJson as HadithCollection[]
 
 export const CHAPTER_BY_ID = new Map(CHAPTERS.map((c) => [c.id, c]))
 
