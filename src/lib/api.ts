@@ -1,7 +1,10 @@
 import { RECITERS } from '../data'
-import type { Reciter, VerseText } from './types'
+import type { Reciter, VerseText, VerseTiming } from './types'
 
 const BASE = 'https://api.quran.com/api/v4'
+// quran.com's "QDC" audio service carries ayah-level timings aligned to the
+// exact full-surah MP3s this app already plays (same audio_url).
+const QDC = 'https://api.qurancdn.com/api/qdc'
 
 /** Fetch a chapter's text in all scripts (Uthmani, IndoPak, Tajweed) + page/juz, one request. */
 export async function fetchChapterVerses(chapterId: number): Promise<VerseText[]> {
@@ -41,6 +44,32 @@ export async function fetchChapterAudioUrl(reciterId: number, chapterId: number)
   const url = json.audio_file?.audio_url
   if (!url) throw new Error('No audio URL returned for this surah')
   return url
+}
+
+/**
+ * Fetch per-ayah timings for a reciter's recording of a surah, used to
+ * highlight the current ayah in the reader as the audio plays. Timings line up
+ * with the same full-surah MP3 returned by {@link fetchChapterAudioUrl}.
+ */
+export async function fetchChapterTimings(
+  reciterId: number,
+  chapterId: number,
+): Promise<{ duration: number; verses: VerseTiming[] }> {
+  const res = await fetch(`${QDC}/audio/reciters/${reciterId}/audio_files?chapter=${chapterId}&segments=true`)
+  if (!res.ok) throw new Error(`Timing lookup failed (HTTP ${res.status})`)
+  const json = (await res.json()) as {
+    audio_files?: {
+      duration?: number
+      verse_timings?: { verse_key: string; timestamp_from: number; timestamp_to: number }[]
+    }[]
+  }
+  const file = json.audio_files?.[0]
+  const timings = file?.verse_timings
+  if (!timings?.length) throw new Error('No timings returned for this recording')
+  return {
+    duration: file?.duration ?? 0,
+    verses: timings.map((t) => ({ key: t.verse_key, from: t.timestamp_from, to: t.timestamp_to })),
+  }
 }
 
 interface RawRecitation {

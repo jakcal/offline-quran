@@ -31,7 +31,10 @@ function App() {
       standalone: window.matchMedia('(display-mode: standalone)').matches,
       online: navigator.onLine,
     })
-    void useDownloads.getState().init()
+    void useDownloads
+      .getState()
+      .init()
+      .then(() => useDownloads.getState().backfillTimings())
     void useStats.getState().load()
     void getMeta<number>('reciterId').then((id) => {
       if (id != null) usePlayer.getState().setReciter(id)

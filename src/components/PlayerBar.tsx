@@ -4,7 +4,9 @@ import { audioKey } from '../lib/db'
 import { formatTime } from '../lib/format'
 import { useDownloads } from '../store/downloads'
 import { usePlayer } from '../store/player'
+import { useReader } from '../store/reader'
 import {
+  BookIcon,
   CheckIcon,
   CloudOffIcon,
   DownloadIcon,
@@ -30,6 +32,7 @@ export function PlayerBar() {
   const seek = usePlayer((s) => s.seek)
   const speed = usePlayer((s) => s.speed)
   const setSpeed = usePlayer((s) => s.setSpeed)
+  const openReader = useReader((s) => s.open)
 
   const key = chapterId != null ? audioKey(reciterId, chapterId) : ''
   const downloaded = useDownloads((s) => (key ? s.downloaded.has(key) : false))
@@ -147,6 +150,15 @@ export function PlayerBar() {
           </div>
 
           <div className="flex shrink-0 items-center gap-1">
+            <button
+              type="button"
+              onClick={() => openReader(chapterId)}
+              aria-label="Read along"
+              className="grid h-10 w-10 place-items-center rounded-full text-ink transition-colors active:bg-line"
+            >
+              <BookIcon className="h-5 w-5" />
+            </button>
+
             <div ref={speedRef} className="relative">
               <button
                 ref={speedBtnRef}

@@ -1,8 +1,9 @@
 import { create } from 'zustand'
 import { CHAPTERS } from '../data'
 import { track } from '../lib/analytics'
-import { audioKey, deleteAudio, getDownloadedKeys, getMeta, setMeta, totalCacheSize } from '../lib/db'
+import { audioKey, deleteAudio, deleteTimings, getDownloadedKeys, getMeta, getTimings, setMeta, totalCacheSize } from '../lib/db'
 import { downloadChapter } from '../lib/download'
+import { getChapterTimings } from '../lib/timings'
 import { getChapterVerses } from '../lib/verses'
 import type { DownloadProgress } from '../lib/types'
 
@@ -40,6 +41,8 @@ interface DownloadsState {
   ensure: (reciterId: number, chapterId: number, url?: string) => Promise<void>
   cancel: (reciterId: number, chapterId: number) => void
   remove: (reciterId: number, chapterId: number) => Promise<void>
+  /** Backfill ayah timings for surahs downloaded before sync-highlighting existed. */
+  backfillTimings: () => Promise<void>
   /** Download every surah not yet cached for the given reciter. */
   downloadAll: (reciterId: number) => Promise<void>
   /** Stop an in-flight "download all" run, aborting its current downloads. */
@@ -92,8 +95,10 @@ export const useDownloads = create<DownloadsState>((set, get) => ({
         return { downloaded, progress, cacheSize: size }
       })
       track('download_complete', { chapter_id: chapterId, reciter_id: reciterId })
-      // Cache the Arabic text too, so a downloaded surah is also readable offline.
+      // Cache the Arabic text + ayah timings too, so a downloaded surah is
+      // readable offline and highlights in sync with the recording offline.
       void getChapterVerses(chapterId).catch(() => {})
+      void getChapterTimings(reciterId, chapterId).catch(() => {})
     } catch (err) {
       if (controller.signal.aborted) {
         set((s) => {
@@ -121,6 +126,7 @@ export const useDownloads = create<DownloadsState>((set, get) => ({
     controllers.get(key)?.abort()
     track('download_remove', { chapter_id: chapterId, reciter_id: reciterId })
     await deleteAudio(reciterId, chapterId)
+    await deleteTimings(reciterId, chapterId)
     const size = await totalCacheSize()
     set((s) => {
       const downloaded = new Set(s.downloaded)
@@ -129,6 +135,31 @@ export const useDownloads = create<DownloadsState>((set, get) => ({
       delete progress[key]
       return { downloaded, progress, cacheSize: size }
     })
+  },
+
+  backfillTimings: async () => {
+    if (!navigator.onLine) return
+    // Find downloaded surahs whose timings aren't cached yet (e.g. saved before
+    // this feature shipped) and fetch them quietly in the background.
+    const missing: Array<{ reciterId: number; chapterId: number }> = []
+    for (const key of get().downloaded) {
+      const [reciterId, chapterId] = key.split(':').map(Number)
+      if (Number.isNaN(reciterId) || Number.isNaN(chapterId)) continue
+      if (!(await getTimings(reciterId, chapterId))) missing.push({ reciterId, chapterId })
+    }
+    if (!missing.length) return
+
+    const queue = [...missing]
+    const worker = async () => {
+      while (queue.length && navigator.onLine) {
+        const { reciterId, chapterId } = queue.shift()!
+        // getChapterTimings caches on success; errors are swallowed so one
+        // failure never stalls the backfill or surfaces to the user.
+        await getChapterTimings(reciterId, chapterId).catch(() => {})
+      }
+    }
+    // Low concurrency — this is a quiet, best-effort catch-up, not a priority.
+    await Promise.all(Array.from({ length: 2 }, worker))
   },
 
   downloadAll: async (reciterId) => {

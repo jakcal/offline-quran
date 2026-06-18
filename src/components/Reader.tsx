@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CHAPTER_BY_ID } from '../data'
+import { CHAPTER_BY_ID, RECITERS } from '../data'
 import { track } from '../lib/analytics'
-import { toArabicNumber } from '../lib/format'
+import { formatTime, toArabicNumber } from '../lib/format'
 import { parseTajweed, TAJWEED_LEGEND, tajweedColor } from '../lib/tajweed'
 import type { VerseText } from '../lib/types'
 import { getChapterVerses } from '../lib/verses'
@@ -15,8 +15,11 @@ import {
   ChevronRightIcon,
   CloseIcon,
   CopyIcon,
+  HeadphonesIcon,
+  NextIcon,
   PauseIcon,
   PlayIcon,
+  PrevIcon,
   ShareIcon,
   SlidersIcon,
   SpinnerIcon,
@@ -34,13 +37,14 @@ interface Palette {
   gold: string
   rule: string
   sel: string
+  nowPlaying: string // wash behind the ayah currently being recited
 }
 
 const THEMES: Record<ReaderTheme, Palette> = {
-  light: { bg: '#faf9f6', panel: '#ffffff', text: '#1c1917', faint: '#78716c', accent: '#0f766e', accentInk: '#ffffff', gold: '#b08d57', rule: '#e7e5e4', sel: 'rgba(15,118,110,0.10)' },
-  sepia: { bg: '#f4ecd8', panel: '#efe6cf', text: '#4b3b2a', faint: '#8a7355', accent: '#9a6a2f', accentInk: '#fffaf0', gold: '#9a6a2f', rule: '#e1d4b5', sel: 'rgba(154,106,47,0.13)' },
-  green: { bg: '#e9f0e8', panel: '#dfe9dd', text: '#1c2b22', faint: '#5d7466', accent: '#15803d', accentInk: '#f0fdf4', gold: '#9a7b3a', rule: '#cdddc9', sel: 'rgba(21,128,61,0.12)' },
-  dark: { bg: '#0f0f10', panel: '#1a1a1c', text: '#e9e7e4', faint: '#9a948c', accent: '#2dd4bf', accentInk: '#06231f', gold: '#d4af37', rule: '#2a2622', sel: 'rgba(45,212,191,0.15)' },
+  light: { bg: '#faf9f6', panel: '#ffffff', text: '#1c1917', faint: '#78716c', accent: '#0f766e', accentInk: '#ffffff', gold: '#b08d57', rule: '#e7e5e4', sel: 'rgba(15,118,110,0.10)', nowPlaying: 'rgba(15,118,110,0.20)' },
+  sepia: { bg: '#f4ecd8', panel: '#efe6cf', text: '#4b3b2a', faint: '#8a7355', accent: '#9a6a2f', accentInk: '#fffaf0', gold: '#9a6a2f', rule: '#e1d4b5', sel: 'rgba(154,106,47,0.13)', nowPlaying: 'rgba(154,106,47,0.24)' },
+  green: { bg: '#e9f0e8', panel: '#dfe9dd', text: '#1c2b22', faint: '#5d7466', accent: '#15803d', accentInk: '#f0fdf4', gold: '#9a7b3a', rule: '#cdddc9', sel: 'rgba(21,128,61,0.12)', nowPlaying: 'rgba(21,128,61,0.22)' },
+  dark: { bg: '#0f0f10', panel: '#1a1a1c', text: '#e9e7e4', faint: '#9a948c', accent: '#2dd4bf', accentInk: '#06231f', gold: '#d4af37', rule: '#2a2622', sel: 'rgba(45,212,191,0.15)', nowPlaying: 'rgba(45,212,191,0.26)' },
 }
 
 const SWATCH: Record<ReaderTheme, string> = { light: '#faf9f6', sepia: '#f4ecd8', green: '#e3ede1', dark: '#161618' }
@@ -84,6 +88,17 @@ function ReaderView({ chapterId, onClose }: { chapterId: number; onClose: () => 
   const loading = usePlayer((s) => s.loading)
   const play = usePlayer((s) => s.play)
   const toggle = usePlayer((s) => s.toggle)
+  const playerChapterId = usePlayer((s) => s.chapterId)
+  const playerReciterId = usePlayer((s) => s.reciterId)
+  const currentTime = usePlayer((s) => s.currentTime)
+  const duration = usePlayer((s) => s.duration)
+  const seek = usePlayer((s) => s.seek)
+  const prev = usePlayer((s) => s.prev)
+  const next = usePlayer((s) => s.next)
+  const openReader = useReader((s) => s.open)
+  // The ayah being recited right now — only when this surah is the one playing.
+  const activeVerseKey = usePlayer((s) => (s.chapterId === chapterId ? s.activeVerseKey : null))
+  const [follow, setFollow] = useState(true)
 
   useEffect(() => setLastRead(chapterId, resumeKey.current), [chapterId, setLastRead])
   useEffect(() => track('open_reader', { chapter_id: chapterId }), [chapterId])
@@ -182,6 +197,38 @@ function ReaderView({ chapterId, onClose }: { chapterId: number; onClose: () => 
     return () => el.removeEventListener('scroll', onScroll)
   }, [view, chapterId, setLastRead])
 
+  // Follow the recitation: keep the ayah being recited in view. In paged view,
+  // first flip to its page (the effect re-runs once `safeIndex` updates, below).
+  // We center the ayah ourselves rather than using scrollIntoView, which is
+  // unreliable for the inline, multi-line verse spans; long ayahs are pinned
+  // near the top instead of centered so their start is always visible.
+  useEffect(() => {
+    if (!follow || !activeVerseKey) return
+    if (view === 'paged') {
+      const idx = pages.findIndex((pg) => pg.verses.some((v) => v.key === activeVerseKey))
+      if (idx >= 0 && idx !== safeIndex) {
+        setPageIndex(idx)
+        return
+      }
+    }
+    const container = scrollRef.current
+    if (!container) return
+    // Wait a frame so a just-flipped page has laid out before we measure.
+    const raf = requestAnimationFrame(() => {
+      const el = container.querySelector<HTMLElement>(`[data-key="${activeVerseKey}"]`)
+      if (!el) return
+      const pad = 24
+      const cRect = container.getBoundingClientRect()
+      const eRect = el.getBoundingClientRect()
+      const tooTall = eRect.height >= container.clientHeight - pad * 2
+      const delta = tooTall
+        ? eRect.top - cRect.top - pad
+        : eRect.top - cRect.top - container.clientHeight / 2 + eRect.height / 2
+      container.scrollBy({ top: delta, behavior: 'smooth' })
+    })
+    return () => cancelAnimationFrame(raf)
+  }, [activeVerseKey, follow, view, pages, safeIndex])
+
   useEffect(() => {
     if (!paged) return
     const onKey = (e: KeyboardEvent) => {
@@ -195,6 +242,12 @@ function ReaderView({ chapterId, onClose }: { chapterId: number; onClose: () => 
   const verseByKey = useMemo(() => new Map((verses ?? []).map((v) => [v.key, v])), [verses])
   const showBismillah = chapterId !== 1 && chapterId !== 9
   const place = chapter.revelationPlace.charAt(0).toUpperCase() + chapter.revelationPlace.slice(1)
+
+  // Now-playing context for the in-reader mini player.
+  const playingChapter = playerChapterId != null ? CHAPTER_BY_ID.get(playerChapterId) : null
+  const playingReciter = RECITERS.find((r) => r.id === playerReciterId)
+  const playingHere = playerChapterId === chapterId
+  const showMini = playingChapter != null && !selected
 
   const onSelect = (key: string) => {
     setSelected(key)
@@ -227,6 +280,7 @@ function ReaderView({ chapterId, onClose }: { chapterId: number; onClose: () => 
     <p dir="rtl" lang="ar" className="font-arabic" style={{ fontSize: `${fontSize}rem`, lineHeight, textAlign: 'justify' }}>
       {list.map((v) => {
         const isSel = selected === v.key
+        const isReciting = activeVerseKey === v.key
         return (
           <span
             key={v.key}
@@ -234,7 +288,7 @@ function ReaderView({ chapterId, onClose }: { chapterId: number; onClose: () => 
             onClick={() => onSelect(v.key)}
             className="cursor-pointer rounded-lg transition-colors"
             style={{
-              background: isSel || flashVerse === v.key ? p.sel : 'transparent',
+              background: isReciting ? p.nowPlaying : isSel || flashVerse === v.key ? p.sel : 'transparent',
               padding: '0.04em 0.18em',
               boxDecorationBreak: 'clone',
               WebkitBoxDecorationBreak: 'clone',
@@ -366,15 +420,17 @@ function ReaderView({ chapterId, onClose }: { chapterId: number; onClose: () => 
 
         <div ref={scrollRef} className="h-full overflow-y-auto overscroll-contain px-5 py-6 md:px-8">
           <div className="mx-auto max-w-3xl">
-            {/* Ornamental surah header */}
-            <div className="mx-auto mb-7 max-w-md rounded-2xl px-6 py-4 text-center" style={{ border: `1px solid ${p.rule}`, background: p.bg }}>
-              <div className="mb-1.5 flex items-center justify-center gap-2 text-[10px] font-semibold uppercase tracking-[0.22em]" style={{ color: p.faint }}>
-                <Flourish color={p.gold} /> Surah {chapter.id} <Flourish color={p.gold} />
+            {/* Ornamental surah header — only atop the surah (first page in paged view). */}
+            {(!paged || safeIndex === 0) && (
+              <div className="mx-auto mb-7 max-w-md rounded-2xl px-6 py-4 text-center" style={{ border: `1px solid ${p.rule}`, background: p.bg }}>
+                <div className="mb-1.5 flex items-center justify-center gap-2 text-[10px] font-semibold uppercase tracking-[0.22em]" style={{ color: p.faint }}>
+                  <Flourish color={p.gold} /> Surah {chapter.id} <Flourish color={p.gold} />
+                </div>
+                <h1 className="font-arabic text-4xl leading-tight">{chapter.nameArabic}</h1>
+                <p className="font-display mt-1 text-base font-bold">{chapter.nameSimple}</p>
+                <p className="text-xs" style={{ color: p.faint }}>{chapter.translatedName} · {place}</p>
               </div>
-              <h1 className="font-arabic text-4xl leading-tight">{chapter.nameArabic}</h1>
-              <p className="font-display mt-1 text-base font-bold">{chapter.nameSimple}</p>
-              <p className="text-xs" style={{ color: p.faint }}>{chapter.translatedName} · {place}</p>
-            </div>
+            )}
 
             {error ? (
               <div className="py-16 text-center">
@@ -419,7 +475,7 @@ function ReaderView({ chapterId, onClose }: { chapterId: number; onClose: () => 
 
       {/* Paged nav (mobile/compact) */}
       {paged && currentPage && !selected && (
-        <div className="safe-bottom flex shrink-0 items-center justify-between px-4 py-3" style={{ background: p.panel, borderTop: `1px solid ${p.rule}` }}>
+        <div className={`flex shrink-0 items-center justify-between px-4 py-3 ${showMini ? '' : 'safe-bottom'}`} style={{ background: p.panel, borderTop: `1px solid ${p.rule}` }}>
           <NavBtn label="Previous page" onClick={() => setPageIndex((i) => Math.max(0, i - 1))} disabled={safeIndex <= 0} rule={p.rule} text={p.text}>
             <ChevronLeftIcon className="h-5 w-5" />
           </NavBtn>
@@ -430,6 +486,65 @@ function ReaderView({ chapterId, onClose }: { chapterId: number; onClose: () => 
           <NavBtn label="Next page" onClick={() => setPageIndex((i) => Math.min(pages.length - 1, i + 1))} disabled={safeIndex >= pages.length - 1} rule={p.rule} text={p.text}>
             <ChevronRightIcon className="h-5 w-5" />
           </NavBtn>
+        </div>
+      )}
+
+      {/* In-reader mini player: keeps playback context + the Follow toggle in reach. */}
+      {showMini && playingChapter && (
+        <div className="safe-bottom shrink-0 px-3 pb-2 pt-2" style={{ background: p.panel, borderTop: `1px solid ${p.rule}` }}>
+          <div className="flex items-center gap-2">
+            <span className="w-9 text-right text-[10px] tabular-nums" style={{ color: p.faint }}>{formatTime(currentTime)}</span>
+            <input
+              type="range"
+              min={0}
+              max={duration || 0}
+              step="any"
+              value={Math.min(currentTime, duration || 0)}
+              onChange={(e) => seek(Number(e.target.value))}
+              aria-label="Seek"
+              className="h-1.5 w-full cursor-pointer appearance-none rounded-full"
+              style={{ accentColor: p.accent, background: p.rule }}
+            />
+            <span className="w-9 text-[10px] tabular-nums" style={{ color: p.faint }}>{formatTime(duration)}</span>
+          </div>
+
+          <div className="mt-1.5 flex items-center gap-2">
+            <button type="button" onClick={prev} disabled={playerChapterId != null && playerChapterId <= 1} aria-label="Previous surah" className="grid h-9 w-9 shrink-0 place-items-center rounded-full disabled:opacity-30" style={{ color: p.text }}>
+              <PrevIcon className="h-5 w-5" />
+            </button>
+            <button type="button" onClick={toggle} aria-label={isPlaying ? 'Pause' : 'Play'} className="grid h-10 w-10 shrink-0 place-items-center rounded-full active:scale-95 transition-transform" style={{ background: p.accent, color: p.accentInk }}>
+              {loading ? <SpinnerIcon className="h-5 w-5" /> : isPlaying ? <PauseIcon className="h-5 w-5" /> : <PlayIcon className="h-5 w-5" />}
+            </button>
+            <button type="button" onClick={next} disabled={playerChapterId != null && playerChapterId >= 114} aria-label="Next surah" className="grid h-9 w-9 shrink-0 place-items-center rounded-full disabled:opacity-30" style={{ color: p.text }}>
+              <NextIcon className="h-5 w-5" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => !playingHere && playerChapterId != null && openReader(playerChapterId)}
+              className="min-w-0 flex-1 text-left"
+              aria-label={playingHere ? undefined : 'Open the surah now playing'}
+            >
+              <p className="truncate text-xs font-semibold">
+                {playingChapter.id}. {playingChapter.nameSimple}
+                {!playingHere && <span style={{ color: p.faint }}> · tap to open</span>}
+              </p>
+              <p className="truncate text-[11px]" style={{ color: p.faint }}>{playingReciter?.name}</p>
+            </button>
+
+            {playingHere && (
+              <button
+                type="button"
+                onClick={() => setFollow((f) => !f)}
+                aria-pressed={follow}
+                className="flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors"
+                style={follow ? { background: p.accent, color: p.accentInk } : { color: p.faint, border: `1px solid ${p.rule}` }}
+              >
+                <HeadphonesIcon className="h-4 w-4" />
+                Follow
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>

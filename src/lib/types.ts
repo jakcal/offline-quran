@@ -42,6 +42,23 @@ export interface VerseRecord {
   savedAt: number
 }
 
+/** Start/end of one ayah within a full-surah recording, in milliseconds. */
+export interface VerseTiming {
+  key: string // e.g. "2:255"
+  from: number // ms from the start of the surah audio
+  to: number // ms
+}
+
+/** Ayah timings for one reciter's recording of a surah, persisted for offline sync-highlighting. */
+export interface ChapterTimingRecord {
+  key: string // `${reciterId}:${chapterId}`
+  reciterId: number
+  chapterId: number
+  duration: number // total recording length in ms
+  verses: VerseTiming[]
+  savedAt: number
+}
+
 /** Aggregated listening stats for one surah (summed across reciters), in IndexedDB. */
 export interface SurahStat {
   chapterId: number

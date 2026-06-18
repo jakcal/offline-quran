@@ -3,6 +3,8 @@ import { CHAPTER_BY_ID, DEFAULT_RECITER_ID, RECITERS } from '../data'
 import { fetchChapterAudioUrl } from '../lib/api'
 import { track } from '../lib/analytics'
 import { getAudio, setMeta } from '../lib/db'
+import { activeVerseAt, getChapterTimings } from '../lib/timings'
+import type { VerseTiming } from '../lib/types'
 import { useDownloads } from './downloads'
 import { useRecents } from './recents'
 import { useStats } from './stats'
@@ -19,6 +21,31 @@ function setSource(src: string, isObjectUrl: boolean) {
   }
   if (isObjectUrl) currentObjectUrl = src
   audio.src = src
+}
+
+// ---- Ayah sync-highlighting ---------------------------------------------
+// Timings for the surah currently loaded, used to map playback time → ayah.
+// Kept outside React state; the active key is mirrored into the store below.
+let currentTimings: VerseTiming[] | null = null
+
+/** Load (cache-first) the active recording's ayah timings, ignoring stale loads. */
+function loadTimings(reciterId: number, chapterId: number) {
+  currentTimings = null
+  usePlayer.setState({ activeVerseKey: null })
+  void getChapterTimings(reciterId, chapterId).then((rec) => {
+    // A newer surah/reciter may have started while this was in flight — drop it.
+    const { chapterId: curChapter, reciterId: curReciter } = usePlayer.getState()
+    if (!rec || curChapter !== chapterId || curReciter !== reciterId) return
+    currentTimings = rec.verses
+    updateActiveVerse()
+  })
+}
+
+/** Recompute the highlighted ayah from the current playback position. */
+function updateActiveVerse() {
+  if (!currentTimings) return
+  const key = activeVerseAt(currentTimings, audio.currentTime * 1000)
+  if (key !== usePlayer.getState().activeVerseKey) usePlayer.setState({ activeVerseKey: key })
 }
 
 // Resume support: seek to a saved position once the audio metadata is ready.
@@ -77,6 +104,8 @@ interface PlayerState {
   duration: number
   volume: number
   speed: number
+  /** Verse key (e.g. "2:255") currently being recited, or null. Drives reader highlighting. */
+  activeVerseKey: string | null
 
   setReciter: (id: number) => void
   setVolume: (v: number) => void
@@ -100,6 +129,7 @@ export const usePlayer = create<PlayerState>((set, get) => ({
   duration: 0,
   volume: 1,
   speed: 1,
+  activeVerseKey: null,
 
   setVolume: (v) => {
     const vol = Math.min(1, Math.max(0, v))
@@ -146,6 +176,8 @@ export const usePlayer = create<PlayerState>((set, get) => ({
     set({ chapterId, loading: true, error: null })
     pendingSeek = startAt != null && startAt > 1 ? startAt : null
     track('play_surah', { chapter_id: chapterId, reciter_id: reciterId, resumed: pendingSeek != null })
+    // Load ayah timings (cache-first) in parallel with the audio for sync-highlighting.
+    loadTimings(reciterId, chapterId)
 
     try {
       const cached = await getAudio(reciterId, chapterId)
@@ -240,6 +272,7 @@ audio.addEventListener('pause', () => {
 })
 audio.addEventListener('seeked', () => {
   lastTickTime = audio.currentTime // don't count the jump as listened time
+  updateActiveVerse()
 })
 audio.addEventListener('loadedmetadata', () => {
   applyPendingSeek()
@@ -250,6 +283,7 @@ audio.addEventListener('waiting', () => usePlayer.setState({ loading: true }))
 audio.addEventListener('timeupdate', () => {
   usePlayer.setState({ currentTime: audio.currentTime })
   updatePositionState()
+  updateActiveVerse()
   saveProgress()
   // Sum only small forward deltas — a seek or buffering gap is ignored.
   const t = audio.currentTime

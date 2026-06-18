@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie'
-import type { AudioRecord, HadithCacheRecord, SurahStat, VerseRecord } from './types'
+import type { AudioRecord, ChapterTimingRecord, HadithCacheRecord, SurahStat, VerseRecord } from './types'
 
 export function audioKey(reciterId: number, chapterId: number): string {
   return `${reciterId}:${chapterId}`
@@ -12,6 +12,7 @@ class QuranDB extends Dexie {
   meta!: Table<{ key: string; value: unknown }, string>
   stats!: Table<SurahStat, number>
   hadith!: Table<HadithCacheRecord, string>
+  timings!: Table<ChapterTimingRecord, string>
 
   constructor() {
     super('offline-quran')
@@ -59,6 +60,15 @@ class QuranDB extends Dexie {
       stats: 'chapterId',
       hadith: 'slug',
     })
+    // v7 adds per-reciter ayah timings for sync-highlighting in the reader.
+    this.version(7).stores({
+      audio: 'key, reciterId, chapterId, savedAt',
+      meta: 'key',
+      verses: 'chapterId',
+      stats: 'chapterId',
+      hadith: 'slug',
+      timings: 'key, reciterId, chapterId',
+    })
   }
 }
 
@@ -93,6 +103,20 @@ export async function getMeta<T>(key: string): Promise<T | undefined> {
 
 export function setMeta(key: string, value: unknown) {
   return db.meta.put({ key, value })
+}
+
+// ---- Ayah timings (sync-highlighting) -----------------------------------
+
+export function getTimings(reciterId: number, chapterId: number) {
+  return db.timings.get(audioKey(reciterId, chapterId))
+}
+
+export function setTimings(rec: ChapterTimingRecord) {
+  return db.timings.put(rec)
+}
+
+export function deleteTimings(reciterId: number, chapterId: number) {
+  return db.timings.delete(audioKey(reciterId, chapterId))
 }
 
 // ---- Listening stats ----------------------------------------------------
