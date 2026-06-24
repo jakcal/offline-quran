@@ -16,6 +16,7 @@ import {
   PrevIcon,
   SpinnerIcon,
 } from './icons'
+import { SleepTimerButton } from './SleepTimerButton'
 
 export function PlayerBar() {
   const reciterId = usePlayer((s) => s.reciterId)
@@ -207,6 +208,8 @@ export function PlayerBar() {
                 </div>
               )}
             </div>
+
+            <SleepTimerButton />
 
             <button
               type="button"

@@ -92,6 +92,32 @@ function saveProgress(force = false) {
   }
 }
 
+// ---- Sleep timer ---------------------------------------------------------
+// A wall-clock countdown that pauses playback when it reaches zero. Kept
+// outside React state; the remaining seconds are mirrored into the store.
+let sleepEndAt: number | null = null
+let sleepInterval: ReturnType<typeof setInterval> | null = null
+
+function clearSleep() {
+  if (sleepInterval != null) {
+    clearInterval(sleepInterval)
+    sleepInterval = null
+  }
+  sleepEndAt = null
+  usePlayer.setState({ sleepRemaining: null, sleepAfterTrack: false })
+}
+
+function tickSleep() {
+  if (sleepEndAt == null) return
+  const remaining = Math.max(0, Math.round((sleepEndAt - Date.now()) / 1000))
+  if (remaining <= 0) {
+    clearSleep()
+    audio.pause()
+    return
+  }
+  usePlayer.setState({ sleepRemaining: remaining })
+}
+
 interface PlayerState {
   reciterId: number
   chapterId: number | null
@@ -106,10 +132,20 @@ interface PlayerState {
   speed: number
   /** Verse key (e.g. "2:255") currently being recited, or null. Drives reader highlighting. */
   activeVerseKey: string | null
+  /** Seconds left on the sleep timer, or null when it isn't running. */
+  sleepRemaining: number | null
+  /** True when playback should stop at the end of the current surah instead of on a clock. */
+  sleepAfterTrack: boolean
 
   setReciter: (id: number) => void
   setVolume: (v: number) => void
   setSpeed: (s: number) => void
+  /** Start a sleep timer that pauses playback after `minutes`. */
+  startSleepTimer: (minutes: number) => void
+  /** Stop playback once the current surah finishes. */
+  sleepAfterCurrent: () => void
+  /** Cancel any pending sleep timer. */
+  cancelSleepTimer: () => void
   /** Play a surah. `reciterId` plays a specific recording; `startAt` resumes from a saved position. */
   play: (chapterId: number, reciterId?: number, startAt?: number) => Promise<void>
   toggle: () => void
@@ -130,6 +166,8 @@ export const usePlayer = create<PlayerState>((set, get) => ({
   volume: 1,
   speed: 1,
   activeVerseKey: null,
+  sleepRemaining: null,
+  sleepAfterTrack: false,
 
   setVolume: (v) => {
     const vol = Math.min(1, Math.max(0, v))
@@ -143,6 +181,22 @@ export const usePlayer = create<PlayerState>((set, get) => ({
     set({ speed })
     void setMeta('speed', speed)
   },
+
+  startSleepTimer: (minutes) => {
+    clearSleep()
+    sleepEndAt = Date.now() + minutes * 60_000
+    sleepInterval = setInterval(tickSleep, 1000)
+    set({ sleepRemaining: minutes * 60, sleepAfterTrack: false })
+    track('sleep_timer', { minutes })
+  },
+
+  sleepAfterCurrent: () => {
+    clearSleep()
+    set({ sleepAfterTrack: true })
+    track('sleep_timer', { minutes: 'end_of_surah' })
+  },
+
+  cancelSleepTimer: () => clearSleep(),
 
   setReciter: (id) => {
     if (id === get().reciterId) return
@@ -303,6 +357,11 @@ audio.addEventListener('ended', () => {
   // since 'ended' doesn't fire 'pause' and the throttled save may be seconds old.
   saveProgress(true)
   flushStats()
+  // A "stop after this surah" sleep timer ends here instead of advancing.
+  if (usePlayer.getState().sleepAfterTrack) {
+    clearSleep()
+    return
+  }
   usePlayer.getState().next()
 })
 audio.addEventListener('error', () => {
