@@ -127,11 +127,23 @@ function ReaderView({ chapterId, onClose }: { chapterId: number; onClose: () => 
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') {
+        onClose()
+        return
+      }
+      if (e.key === ' ') {
+        const t = e.target as HTMLElement | null
+        const tag = t?.tagName
+        // Let focused controls and text fields handle Space themselves.
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || t?.isContentEditable) return
+        if (tag === 'BUTTON' || tag === 'A' || t?.getAttribute('role') === 'button') return
+        e.preventDefault()
+        toggle()
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  }, [onClose, toggle])
 
   const pages = useMemo(() => {
     if (!verses) return []
