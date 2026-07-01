@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { CHAPTER_BY_ID, RECITERS } from '../data'
 import { track } from '../lib/analytics'
 import { formatTime, toArabicNumber } from '../lib/format'
@@ -72,6 +72,7 @@ function ReaderView({ chapterId, onClose }: { chapterId: number; onClose: () => 
   const [flashVerse, setFlashVerse] = useState<string | null>(null)
   const [flash, setFlash] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const readerApi = useRef<ReaderHandle>(null)
   const resumeKey = useRef(useBookmarks.getState().lastRead?.chapterId === chapterId ? useBookmarks.getState().lastRead?.verseKey ?? null : null)
   const resumed = useRef(false)
 
@@ -177,9 +178,10 @@ function ReaderView({ chapterId, onClose }: { chapterId: number; onClose: () => 
       }
       return
     }
-    const el = scrollRef.current?.querySelector(`[data-key="${target}"]`)
-    if (el) {
-      requestAnimationFrame(() => el.scrollIntoView({ block: 'center' }))
+    // Continuous view is virtualized, so the target may not be mounted — the
+    // reader handle windows it in and scrolls to it.
+    if (pages.some((pg) => pg.verses.some((v) => v.key === target))) {
+      readerApi.current?.scrollToKey(target, false)
       markFlash()
       resumed.current = true
     }
@@ -216,12 +218,16 @@ function ReaderView({ chapterId, onClose }: { chapterId: number; onClose: () => 
   // near the top instead of centered so their start is always visible.
   useEffect(() => {
     if (!follow || !activeVerseKey) return
-    if (view === 'paged') {
-      const idx = pages.findIndex((pg) => pg.verses.some((v) => v.key === activeVerseKey))
-      if (idx >= 0 && idx !== safeIndex) {
-        setPageIndex(idx)
-        return
-      }
+    // Continuous view is virtualized — hand off to the reader, which windows
+    // the ayah in before centering it.
+    if (view !== 'paged') {
+      readerApi.current?.scrollToKey(activeVerseKey)
+      return
+    }
+    const idx = pages.findIndex((pg) => pg.verses.some((v) => v.key === activeVerseKey))
+    if (idx >= 0 && idx !== safeIndex) {
+      setPageIndex(idx)
+      return
     }
     const container = scrollRef.current
     if (!container) return
@@ -261,11 +267,6 @@ function ReaderView({ chapterId, onClose }: { chapterId: number; onClose: () => 
   const playingHere = playerChapterId === chapterId
   const showMini = playingChapter != null && !selected
 
-  const onSelect = (key: string) => {
-    setSelected(key)
-    setLastRead(chapterId, key)
-  }
-
   const doFlash = (msg: string) => {
     setFlash(msg)
     window.setTimeout(() => setFlash((f) => (f === msg ? null : f)), 1600)
@@ -297,7 +298,10 @@ function ReaderView({ chapterId, onClose }: { chapterId: number; onClose: () => 
           <span
             key={v.key}
             data-key={v.key}
-            onClick={() => onSelect(v.key)}
+            onClick={() => {
+              setSelected(v.key)
+              setLastRead(chapterId, v.key)
+            }}
             className="cursor-pointer rounded-lg transition-colors"
             style={{
               background: isReciting ? p.nowPlaying : isSel || flashVerse === v.key ? p.sel : 'transparent',
@@ -315,6 +319,9 @@ function ReaderView({ chapterId, onClose }: { chapterId: number; onClose: () => 
       })}
     </p>
   )
+
+  // Changes here alter verse heights, so the virtual list must re-measure.
+  const layoutKey = `${fontSize}|${lineHeight}|${script}|${hideMarkers}`
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col" style={{ background: p.bg, color: p.text }}>
@@ -464,7 +471,19 @@ function ReaderView({ chapterId, onClose }: { chapterId: number; onClose: () => 
                     {BISMILLAH}
                   </p>
                 )}
-                {renderVerses(paged && currentPage ? currentPage.verses : verses)}
+                {paged ? (
+                  currentPage && renderVerses(currentPage.verses)
+                ) : (
+                  <ContinuousReader
+                    ref={readerApi}
+                    scrollRef={scrollRef}
+                    pages={pages}
+                    fontSize={fontSize}
+                    lineHeight={lineHeight}
+                    layoutKey={layoutKey}
+                    renderVerses={renderVerses}
+                  />
+                )}
               </>
             )}
           </div>
@@ -562,6 +581,209 @@ function ReaderView({ chapterId, onClose }: { chapterId: number; onClose: () => 
     </div>
   )
 }
+
+interface ReaderHandle {
+  /** Window the ayah into view (if virtualized) and center it. */
+  scrollToKey: (key: string, smooth?: boolean) => void
+}
+
+interface Page {
+  page: number
+  juz: number
+  verses: VerseText[]
+}
+
+// How far beyond the viewport (px) to keep pages mounted, so scrolling never
+// outruns rendering.
+const OVERSCAN = 1200
+// A mushaf page renders to roughly this many wrapped lines at the default text
+// size; used to estimate the height of pages not yet measured.
+const PAGE_LINES = 20
+
+/**
+ * Virtualized continuous reader. Long surahs (Al-Baqarah is ~15k inline nodes
+ * in Tajweed mode) freeze layout when rendered whole, so we window by mushaf
+ * page: only pages near the viewport are mounted, with spacer divs standing in
+ * for the rest. Heights are measured on mount and remembered, so scroll
+ * positions stay stable once a page has been seen.
+ */
+const ContinuousReader = forwardRef<ReaderHandle, {
+  scrollRef: React.RefObject<HTMLDivElement | null>
+  pages: Page[]
+  fontSize: number
+  lineHeight: number
+  layoutKey: string
+  renderVerses: (list: VerseText[]) => React.ReactNode
+}>(function ContinuousReader({ scrollRef, pages, fontSize, lineHeight, layoutKey, renderVerses }, ref) {
+    const listRef = useRef<HTMLDivElement>(null)
+    const heights = useRef<number[]>([])
+    const pending = useRef<{ key: string; smooth: boolean } | null>(null)
+    // The mounted window plus the spacer heights that stand in for the rest.
+    // Kept in state (not derived in render) so we never read the heights ref
+    // during rendering.
+    const [win, setWin] = useState({ start: 0, end: Math.min(pages.length, 3), topPad: 0, botPad: 0 })
+
+    // Estimated height of a page: its measured value, or a line-count guess that
+    // is INDEPENDENT of other pages — so measuring one page never changes the
+    // estimate for another, and content already scrolled to (e.g. a resumed
+    // verse) never shifts underfoot. The trade-off is that the scrollbar drifts
+    // slightly as real, taller pages replace the guess while you scroll down.
+    const est = useCallback(
+      (i: number) => heights.current[i] || Math.round(PAGE_LINES * fontSize * 16 * lineHeight) + 48,
+      [fontSize, lineHeight],
+    )
+
+    const buildWin = useCallback(
+      (start: number, end: number) => {
+        let topPad = 0
+        for (let i = 0; i < start; i++) topPad += est(i)
+        let botPad = 0
+        for (let i = end; i < pages.length; i++) botPad += est(i)
+        return { start, end, topPad, botPad }
+      },
+      [est, pages.length],
+    )
+
+    // Window the pages within the viewport (+overscan).
+    const recompute = useCallback(() => {
+      // A targeted scroll-to has mounted its own window and is about to move the
+      // viewport there; recomputing now (from the pre-scroll position) would fight
+      // it. The scroll it triggers re-runs this once the position is correct.
+      if (pending.current) return
+      const c = scrollRef.current
+      const l = listRef.current
+      if (!c || !l) return
+      const offset = c.getBoundingClientRect().top - l.getBoundingClientRect().top
+      const viewTop = offset - OVERSCAN
+      const viewBot = offset + c.clientHeight + OVERSCAN
+      let acc = 0
+      let start = 0
+      let end = pages.length
+      for (let i = 0; i < pages.length; i++) {
+        const h = est(i)
+        if (acc + h <= viewTop) start = i + 1
+        acc += h
+        if (acc >= viewBot) {
+          end = i + 1
+          break
+        }
+      }
+      start = Math.max(0, Math.min(start, Math.max(0, pages.length - 1)))
+      end = Math.max(start + 1, Math.min(end, pages.length))
+      setWin((w) => {
+        const n = buildWin(start, end)
+        return w.start === n.start && w.end === n.end && w.topPad === n.topPad && w.botPad === n.botPad ? w : n
+      })
+    }, [scrollRef, pages.length, est, buildWin])
+
+    // Center a mounted ayah (long ones pin near the top). Returns false if it
+    // isn't in the DOM yet.
+    const scrollToEl = useCallback(
+      (key: string, smooth: boolean) => {
+        const c = scrollRef.current
+        const el = listRef.current?.querySelector<HTMLElement>(`[data-key="${key}"]`)
+        if (!c || !el) return false
+        const pad = 24
+        const cRect = c.getBoundingClientRect()
+        const eRect = el.getBoundingClientRect()
+        const tooTall = eRect.height >= c.clientHeight - pad * 2
+        const delta = tooTall
+          ? eRect.top - cRect.top - pad
+          : eRect.top - cRect.top - c.clientHeight / 2 + eRect.height / 2
+        c.scrollBy({ top: delta, behavior: smooth ? 'smooth' : 'auto' })
+        return true
+      },
+      [scrollRef],
+    )
+
+    // Remember the real height of every mounted page, then re-window.
+    useLayoutEffect(() => {
+      const l = listRef.current
+      if (!l) return
+      let changed = false
+      l.querySelectorAll<HTMLElement>('[data-chunk]').forEach((el) => {
+        const i = Number(el.dataset.chunk)
+        const h = el.offsetHeight
+        if (h && Math.abs((heights.current[i] || 0) - h) > 1) {
+          heights.current[i] = h
+          changed = true
+        }
+      })
+      if (changed) recompute()
+    })
+
+    // Once a requested ayah has been mounted by a window change, scroll to it.
+    useLayoutEffect(() => {
+      const p = pending.current
+      if (p && scrollToEl(p.key, p.smooth)) pending.current = null
+    })
+
+    // Text metrics changed — drop cached heights and re-window.
+    useLayoutEffect(() => {
+      heights.current = []
+      recompute()
+    }, [layoutKey, recompute])
+
+    useEffect(() => {
+      const c = scrollRef.current
+      if (!c) return
+      let raf = 0
+      const onScroll = () => {
+        if (raf) return
+        raf = requestAnimationFrame(() => {
+          raf = 0
+          recompute()
+        })
+      }
+      c.addEventListener('scroll', onScroll, { passive: true })
+      let w = c.clientWidth
+      const ro = new ResizeObserver(() => {
+        if (c.clientWidth !== w) {
+          w = c.clientWidth // width changed → wrapping changed, remeasure
+          heights.current = []
+        }
+        recompute()
+      })
+      ro.observe(c)
+      recompute()
+      return () => {
+        c.removeEventListener('scroll', onScroll)
+        ro.disconnect()
+        if (raf) cancelAnimationFrame(raf)
+      }
+    }, [scrollRef, recompute])
+
+    useImperativeHandle(
+      ref,
+      () => ({
+        scrollToKey(key, smooth = true) {
+          const idx = pages.findIndex((pg) => pg.verses.some((v) => v.key === key))
+          if (idx < 0) return
+          // Already mounted → scroll now; otherwise mount a window around it and
+          // let the layout effect finish the scroll.
+          if (idx >= win.start && idx < win.end) scrollToEl(key, smooth)
+          else {
+            pending.current = { key, smooth }
+            setWin(buildWin(Math.max(0, idx - 1), Math.min(pages.length, idx + 2)))
+          }
+        },
+      }),
+      [pages, win.start, win.end, buildWin, scrollToEl],
+    )
+
+    return (
+      <div ref={listRef}>
+        <div style={{ height: win.topPad }} aria-hidden />
+        {pages.slice(win.start, win.end).map((pg, k) => (
+          <div key={pg.page} data-chunk={win.start + k}>
+            {renderVerses(pg.verses)}
+          </div>
+        ))}
+        <div style={{ height: win.botPad }} aria-hidden />
+      </div>
+    )
+  },
+)
 
 function VerseContent({ v, script }: { v: VerseText; script: ReaderScript }) {
   if (script === 'indopak') return <>{v.indopak}</>
