@@ -122,9 +122,11 @@ function SlotRow({ slot, on, time, now, onToggle, onTimeChange }: SlotRowProps) 
           onClick={() => onToggle(!on)}
           className={`relative h-6 w-10 shrink-0 rounded-full transition-colors ${on ? 'bg-brand' : 'bg-line'}`}
         >
+          {/* Anchored with left/top rather than the knob's static position,
+              which a button's centred text alignment would otherwise shift. */}
           <span
-            className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
-              on ? 'translate-x-[18px]' : 'translate-x-0.5'
+            className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
+              on ? 'translate-x-4' : 'translate-x-0'
             }`}
           />
         </button>
