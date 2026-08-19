@@ -37,7 +37,7 @@ export function Header() {
           <button
             type="button"
             onClick={showSettings}
-            aria-label="Reciter & downloads"
+            aria-label="Settings"
             className="grid h-9 w-9 place-items-center rounded-full text-muted active:bg-line"
           >
             <SlidersIcon className="h-5 w-5" />

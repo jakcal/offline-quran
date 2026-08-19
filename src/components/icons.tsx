@@ -185,3 +185,16 @@ export const MicIcon = (props: IconProps) => (
     <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
   </svg>
 )
+
+export const BellIcon = (props: IconProps) => (
+  <svg {...stroke(props)}>
+    <path d="M18 9a6 6 0 1 0-12 0c0 5-2 6-2 6h16s-2-1-2-6" />
+    <path d="M10.5 20a2 2 0 0 0 3 0" />
+  </svg>
+)
+
+export const SunriseIcon = (props: IconProps) => (
+  <svg {...stroke(props)}>
+    <path d="M12 3v4M5.6 9.6 4.2 8.2M18.4 9.6l1.4-1.4M3 18h18M6 18a6 6 0 0 1 12 0" />
+  </svg>
+)

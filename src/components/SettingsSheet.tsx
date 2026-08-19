@@ -1,10 +1,11 @@
 import { useDownloads } from '../store/downloads'
 import { useSettingsSheet } from '../store/settingsSheet'
+import { AdhkarReminders } from './AdhkarReminders'
 import { CloseIcon } from './icons'
 import { DownloadAllButton } from './DownloadAllButton'
 import { ReciterChip } from './ReciterChip'
 
-/** Bottom sheet for playback/offline options: reciter + downloads. */
+/** Bottom sheet for playback/offline options and adhkar reminders. */
 export function SettingsSheet() {
   const open = useSettingsSheet((s) => s.open)
   const hide = useSettingsSheet((s) => s.hide)
@@ -22,7 +23,7 @@ export function SettingsSheet() {
           <div className="mx-auto h-1.5 w-10 rounded-full bg-line" />
         </div>
         <div className="flex items-center justify-between px-5 pb-2 pt-2">
-          <h2 className="font-bold">Reciter &amp; downloads</h2>
+          <h2 className="font-bold">Settings</h2>
           <button
             type="button"
             onClick={hide}
@@ -61,6 +62,8 @@ export function SettingsSheet() {
               />
             </span>
           </button>
+
+          <AdhkarReminders />
         </div>
       </div>
     </div>

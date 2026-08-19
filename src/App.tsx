@@ -13,6 +13,7 @@ import { SurahSheet } from './components/SurahSheet'
 import { ViewTabs } from './components/ViewTabs'
 import { initAnalytics, track } from './lib/analytics'
 import { getMeta } from './lib/db'
+import { startAdhkarReminders } from './lib/notifications'
 import { useKeyboardShortcuts } from './lib/useKeyboardShortcuts'
 import { useDownloads } from './store/downloads'
 import { usePlayer } from './store/player'
@@ -36,6 +37,7 @@ function App() {
       .init()
       .then(() => useDownloads.getState().backfillTimings())
     void useStats.getState().load()
+    startAdhkarReminders()
     void getMeta<number>('reciterId').then((id) => {
       if (id != null) usePlayer.getState().setReciter(id)
     })
