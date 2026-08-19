@@ -1,4 +1,5 @@
-import type { Chapter, HadithCollection, Reciter } from '../lib/types'
+import type { AdhkarSlot, Chapter, Dhikr, HadithCollection, Reciter } from '../lib/types'
+import adhkarJson from './adhkar.json'
 import chaptersJson from './chapters.json'
 import hadithJson from './hadithCollections.json'
 import recitersJson from './reciters.json'
@@ -11,6 +12,9 @@ import recitersJson from './reciters.json'
 export const CHAPTERS = chaptersJson as Chapter[]
 export const RECITERS = recitersJson as Reciter[]
 export const HADITH_COLLECTIONS = hadithJson as HadithCollection[]
+
+/** Morning + evening adhkar (Hisn al-Muslim), bundled so reminders work offline. */
+export const ADHKAR = adhkarJson as Record<AdhkarSlot, Dhikr[]>
 
 export const CHAPTER_BY_ID = new Map(CHAPTERS.map((c) => [c.id, c]))
 

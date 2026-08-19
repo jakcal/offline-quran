@@ -100,6 +100,17 @@ export interface HadithCacheRecord {
   savedAt: number
 }
 
+/** Which half of the day a set of adhkar belongs to. */
+export type AdhkarSlot = 'morning' | 'evening'
+
+/** One remembrance: Arabic text, English rendering, and how many times it's said. */
+export interface Dhikr {
+  arabic: string
+  english: string
+  count: number
+  source?: string
+}
+
 export type DownloadState = 'idle' | 'downloading' | 'done' | 'error'
 
 export interface DownloadProgress {

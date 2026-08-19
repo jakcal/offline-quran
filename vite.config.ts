@@ -33,9 +33,14 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // Adhkar reminders: notification taps + background schedule checks.
+        importScripts: ['/sw-adhkar.js'],
         // App shell precache. Audio is handled separately in IndexedDB,
         // so keep big mp3 files out of the service-worker cache.
         globPatterns: ['**/*.{js,css,html,svg,woff2}'],
+        // Part of the worker itself, not a page asset — precaching it would
+        // ship the same code twice and pin a stale copy.
+        globIgnores: ['**/sw-adhkar.js'],
         navigateFallback: '/index.html',
         runtimeCaching: [
           {
